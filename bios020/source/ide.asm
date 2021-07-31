@@ -1,0 +1,2 @@
+IdeInit:
+		rts
