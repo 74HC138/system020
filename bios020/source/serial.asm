@@ -103,9 +103,8 @@ SerialWriteDec32: ;void (long number)
 	.divLoop:
 		cmpi.l #0, D0
 		beq .display
-		divul.l #10, D0:D1
-		move.w D0, -(A7)
-		move.l D1, D0
+		divul.l #10, D1:D0
+		move.w D1, -(A7)
 		addq.w #1, D2
 		bra.w .divLoop
 
@@ -136,6 +135,10 @@ SerialWriteDec16: ;void (int number)
 
 ;interrupt handler for serial receiver
 SerialRXHandler: ;void ()
+		;move.w IDE1_BASE, D0
+		;bra.w SerialRXHandler
+
+
 		move.l D0, -(A7)
 		move.l D1, -(A7)
 		move.l A0, -(A7)
@@ -143,6 +146,7 @@ SerialRXHandler: ;void ()
 		move.l __SerialRingbuffer, A0
 		move.w (__SerialRBWrite), D0
 		move.b MFP_UDR, D1
+		move.b D1, MFP_UDR
 		andi.w #$00ff, D1
 		move.w D1, (0, A0, D0.w*2)
 		addq.w #1, D0

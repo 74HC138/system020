@@ -18,7 +18,10 @@ Main:
 		jsr SerialWriteChar
 		addq.l #2, A7
 
+		andi.w #$f8ff, SR
+
 	.loop:
+		move.w IDE0_BASE, D0
 		bra.l .loop
 
 	.text0:
@@ -33,6 +36,7 @@ Main:
 		dc.b "\n\n"
 		dc.b "Bootblocks found:", $00
 
+even
 getBootblockCount:
 		move.l #12345, D0
 		rts

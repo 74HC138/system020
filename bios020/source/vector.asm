@@ -88,7 +88,7 @@ dc.l IgnoreInterrupt            ;MFP Timer B
 dc.l IgnoreInterrupt            ;MFP Transmit Error
 dc.l IgnoreInterrupt            ;MFP Transmit Buffer Empty
 dc.l IgnoreInterrupt            ;MFP Receive Error
-dc.l IgnoreInterrupt            ;MFP Receive Buffer Full
+dc.l SerialRXHandler            ;MFP Receive Buffer Full
 dc.l IgnoreInterrupt            ;MFP Timer A
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 6
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 7
@@ -97,8 +97,21 @@ dcb.l 176, IgnoreInterrupt      ;User defined Interrupts
 ;-----------------------------------------------------------------------------
 ;Basic exception handling function
 FatalError:			;locks up cpu completely until reset
-        stop #$0000
-        bra FatalError
+		move.l #.text, A0
+	.mfpWait:
+		btst.b #7, MFP_TSR
+		beq.w .mfpWait
 
+		cmpi.b #$00, (A0)
+		beq .stop
+
+		move.b (A0)+, MFP_UDR
+		bra.w .mfpWait
+	.stop:
+		stop #$ffff
+
+	.text:
+		dc.b "\n\nFatal error!\nReset computer to continue\n\n", $00
+		even
 IgnoreInterrupt:		;just returns without doing anything
         rte
