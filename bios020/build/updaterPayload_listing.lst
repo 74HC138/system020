@@ -1,0 +1,602 @@
+F00:0001       .include "system.asm"
+F01:0001       ;-----------------------------------------------------------------------------
+F01:0002       ;Base definitions
+F01:0003       ROM_BASE        = $00000000
+F01:0004       ROM_SIZE        = $00040000
+F01:0005       ROM_TOP         =  ROM_BASE + ROM_SIZE
+F01:0006       
+F01:0007       RAM_BASE        = $10000000
+F01:0008       RAM_SIZE        = $00100000
+F01:0009       RAM_TOP         = RAM_BASE + RAM_SIZE
+F01:0010       RAM_PAGES       = RAM_SIZE / 1024
+F01:0011       
+F01:0012       MFP_BASE        = $40000000
+F01:0013       
+F01:0014       IDE0_BASE	= $20000000
+F01:0015       IDE1_BASE	= $30000000
+F01:0016       
+F01:0017       STACK_INIT	= RAM_TOP
+F01:0018       ;-----------------------------------------------------------------------------
+F01:0019       ;MFP registers
+F01:0020       MFP_GPDR        = MFP_BASE + $00
+F01:0021       MFP_AER         = MFP_BASE + $01
+F01:0022       MFP_DDR         = MFP_BASE + $02
+F01:0023       MFP_IERA        = MFP_BASE + $03
+F01:0024       MFP_IERB        = MFP_BASE + $04
+F01:0025       MFP_IPRA        = MFP_BASE + $05
+F01:0026       MFP_IPRB        = MFP_BASE + $06
+F01:0027       MFP_ISRA        = MFP_BASE + $07
+F01:0028       MFP_ISRB        = MFP_BASE + $08
+F01:0029       MFP_IMRA        = MFP_BASE + $09
+F01:0030       MFP_IMRB        = MFP_BASE + $0A
+F01:0031       MFP_VR          = MFP_BASE + $0B
+F01:0032       MFP_TACR        = MFP_BASE + $0C
+F01:0033       MFP_TBCR        = MFP_BASE + $0D
+F01:0034       MFP_TCDCR       = MFP_BASE + $0E
+F01:0035       MFP_TADR        = MFP_BASE + $0F
+F01:0036       MFP_TBDR        = MFP_BASE + $10
+F01:0037       MFP_TCDR        = MFP_BASE + $11
+F01:0038       MFP_TDDR        = MFP_BASE + $12
+F01:0039       MFP_SCR         = MFP_BASE + $13
+F01:0040       MFP_UCR         = MFP_BASE + $14
+F01:0041       MFP_RSR         = MFP_BASE + $15
+F01:0042       MFP_TSR         = MFP_BASE + $16
+F01:0043       MFP_UDR         = MFP_BASE + $17
+F01:0044       ;-----------------------------------------------------------------------------
+F01:0045       ;IDE registers
+F01:0046       IDE_D		= IDE0_BASE + $00
+F01:0047       IDE_E		= IDE0_BASE + $02 ;read only
+F01:0048       IDE_SC		= IDE0_BASE + $04
+F01:0049       IDE_SN		= IDE0_BASE + $06
+F01:0050       IDE_CL		= IDE0_BASE + $08
+F01:0051       IDE_CH		= IDE0_BASE + $0A
+F01:0052       IDE_SDH		= IDE0_BASE + $0C
+F01:0053       IDE_STAT	= IDE0_BASE + $0E ;read only
+F01:0054       IDE_WP		= IDE0_BASE + $02 ;write only
+F01:0055       IDE_CMD		= IDE0_BASE + $0E ;write only
+F01:0056       
+F01:0057       IDE_ASTAT	= IDE1_BASE + $0C ;read only
+F01:0058       IDE_DIGO	= IDE1_BASE + $0C ;write only
+F01:0059       IDE_DRVA	= IDE1_BASE + $0E ;read only
+F01:0060       
+F01:0061       IDE_LBAL	= IDE0_BASE + $06
+F01:0062       IDE_LBAM	= IDE0_BASE + $08
+F01:0063       IDE_LBAH	= IDE0_BASE + $0A
+F01:0064       
+F00:0002       
+F00:0003       UpdaterMain:
+F00:0004               ;bsr.w UpdaterSerialInit
+F00:0005               move.l #.text, A0
+               S01:00000000:  41 FA 01 44
+F00:0006               move.l A0, -(A7)
+               S01:00000004:  2F 08
+F00:0007               bsr UpdaterSerialWrite
+               S01:00000006:  61 00 01 96
+F00:0008               addq #4, A7
+               S01:0000000A:  58 4F
+F00:0009           .commandLoop:
+F00:0010               clr.l D0
+               S01:0000000C:  70 00
+F00:0011               bsr.w UpdaterSerialRead
+               S01:0000000E:  61 00 01 C8
+F00:0012               move.w D0, -(A7)
+               S01:00000012:  3F 00
+F00:0013               bsr.w UpdaterSerialWriteChar
+               S01:00000014:  61 00 01 AA
+F00:0014               move.w (A7)+, D0
+               S01:00000018:  30 1F
+F00:0015       
+F00:0016               cmpi.b #'v', D0
+               S01:0000001A:  0C 00 00 76
+F00:0017               beq.w .commandVersion ;displays version information
+               S01:0000001E:  67 00 01 18
+F00:0018               cmpi.b #'b', D0
+               S01:00000022:  0C 00 00 62
+F00:0019               beq.w .commandBoot ;resets the computer and boots normaly
+               S01:00000026:  67 00 00 E6
+F00:0020               cmpi.b #'p', D0
+               S01:0000002A:  0C 00 00 70
+F00:0021               beq.w .commandPut ;loads 256 bytes over serial into data buffer
+               S01:0000002E:  67 00 00 C8
+F00:0022               cmpi.b #'g', D0
+               S01:00000032:  0C 00 00 67
+F00:0023               beq.w .commandGet ;sends 256 bytes over serial from data buffer
+               S01:00000036:  67 00 00 A8
+F00:0024               cmpi.b #'w', D0
+               S01:0000003A:  0C 00 00 77
+F00:0025               beq.w .commandWrite ;get base address over serial and tries to write the data buffer to that address
+               S01:0000003E:  67 00 00 3C
+F00:0026               cmpi.b #'r', D0
+               S01:00000042:  0C 00 00 72
+F00:0027               beq.w .commandRead ;get base address over serial and load data to data buffer
+               S01:00000046:  67 00 00 1C
+F00:0028               cmpi.b #'t', D0
+               S01:0000004A:  0C 00 00 74
+F00:0029               beq.w .commandTest ;test if device is alive
+               S01:0000004E:  67 00 00 06
+F00:0030               bra.w .commandLoop ;ignore byte
+               S01:00000052:  60 00 FF B8
+F00:0031           
+F00:0032           .commandTest:
+F00:0033                   move.w #'k', -(A7)
+               S01:00000056:  3F 3C 00 6B
+F00:0034                   bsr.w UpdaterSerialWriteChar ;sends ok back
+               S01:0000005A:  61 00 01 64
+F00:0035                   addq.l #2, A7
+               S01:0000005E:  54 8F
+F00:0036                   bra.w .commandLoop
+               S01:00000060:  60 00 FF AA
+F00:0037       
+F00:0038           .commandRead:
+F00:0039                   bsr SerialReadHex32
+               S01:00000064:  61 00 02 2A
+F00:0040                   move.l D0, A0
+               S01:00000068:  20 40
+F00:0041                   move.l #UpdaterDataBuffer, A1
+               S01:0000006A:  43 FA 02 40
+F00:0042                   move.l #128, D1
+               S01:0000006E:  72 40 D2 41
+F00:0043               .commandReadLoop:
+F00:0044                   move.w (A0)+, (A1)+
+               S01:00000072:  32 D8
+F00:0045                   dbra D1, .commandReadLoop
+               S01:00000074:  51 C9 FF FC
+F00:0046                   bra.w .commandTest ;terminate command and return to command receive loop       
+               S01:00000078:  60 00 FF DC
+F00:0047       
+F00:0048           .commandWrite:
+F00:0049       
+F00:0050                   bsr SerialReadHex32
+               S01:0000007C:  61 00 02 12
+F00:0051       			andi.l #$ffffff00, D0
+               S01:00000080:  02 80 FF FF FF 00
+F00:0052                   move.l D0, A0
+               S01:00000086:  20 40
+F00:0053       			andi.l #$ff000000, D0
+               S01:00000088:  02 80 FF 00 00 00
+F00:0054       			move.l D0, A1
+               S01:0000008E:  22 40
+F00:0055                   move.l #UpdaterDataBuffer, A1
+               S01:00000090:  43 FA 02 1A
+F00:0056                   move.w #127, D0
+               S01:00000094:  30 3C 00 7F
+F00:0057       
+F00:0058                   ;there be ghosts beyond here
+F00:0059                   ;brief: set eeprom into programm mode and set the right page address, load data into internal buffer, wait u
+F00:0060                   ;enter programm mode
+F00:0061                   move.w #$AAAA, ($AAAA, A1)
+               S01:00000098:  33 BC AA AA 01 70 00 00 AA AA
+F00:0062                   move.w #$5555, ($5554, A1)
+               S01:000000A2:  33 7C 55 55 55 54
+F00:0063                   move.w #$A0A0, ($AAAA, A1)
+               S01:000000A8:  33 BC A0 A0 01 70 00 00 AA AA
+F00:0064                   ;fill up internal buffer
+F00:0065               .commandWriteLoop:
+F00:0066                   move.w (A1)+, (A0)+
+               S01:000000B2:  30 D9
+F00:0067       
+F00:0068                   dbra D1, .commandWriteLoop
+               S01:000000B4:  51 C9 FF FC
+F00:0069                   ;wait until programming is done
+F00:0070                   move.w -(A1), D0
+               S01:000000B8:  30 21
+F00:0071                   andi.w #$8080, D0
+               S01:000000BA:  02 40 80 80
+F00:0072                   subq.l #2, A0
+               S01:000000BE:  55 88
+F00:0073               .commandWriteWait: ;test for inverted data bit 7. If inverted then the write operation is not finished
+F00:0074                   move.w (A0), D1
+               S01:000000C0:  32 10
+F00:0075                   andi.w #$8080, D1
+               S01:000000C2:  02 41 80 80
+F00:0076                   eor.w D0, D1
+               S01:000000C6:  B1 41
+F00:0077                   cmpi.w #$0000, D1
+               S01:000000C8:  4A 41
+F00:0078                   bne.w .commandWriteWait
+               S01:000000CA:  66 00 FF F4
+F00:0079                   ;repeat test twice
+F00:0080                   move.w (A0), D1
+               S01:000000CE:  32 10
+F00:0081                   andi.w #$8080, D1
+               S01:000000D0:  02 41 80 80
+F00:0082                   eor.w D0, D1
+               S01:000000D4:  B1 41
+F00:0083                   cmpi.w #$0000, D1
+               S01:000000D6:  4A 41
+F00:0084                   bne.w .commandWriteWait
+               S01:000000D8:  66 00 FF E6
+F00:0085                   ;the data is written and writing is done
+F00:0086                   bra.w .commandTest ;terminate command and return to command receive loop
+               S01:000000DC:  60 00 FF 78
+F00:0087       
+F00:0088           .commandGet:
+F00:0089                   move.l #UpdaterDataBuffer, A3
+               S01:000000E0:  47 FA 01 CA
+F00:0090                   move.w #127, D3
+               S01:000000E4:  36 3C 00 7F
+F00:0091               .commandGetLoop:
+F00:0092                   move.w (A3)+, -(A7)
+               S01:000000E8:  3F 1B
+F00:0093       			bsr.w SerialWriteHex16
+               S01:000000EA:  61 00 01 50
+F00:0094       			addq.l #2, A7
+               S01:000000EE:  54 8F
+F00:0095                   dbra D3, .commandGetLoop
+               S01:000000F0:  51 CB FF F6
+F00:0096       
+F00:0097                   bra.w .commandLoop
+               S01:000000F4:  60 00 FF 16
+F00:0098           .commandPut:
+F00:0099                   move.l #UpdaterDataBuffer, A3
+               S01:000000F8:  47 FA 01 B2
+F00:0100                   move.w #127, D3
+               S01:000000FC:  36 3C 00 7F
+F00:0101               .commandPutLoop:
+F00:0102       			bsr SerialReadHex16
+               S01:00000100:  61 00 01 5E
+F00:0103                   move.w D0, (A3)+
+               S01:00000104:  36 C0
+F00:0104                   dbra D3, .commandPutLoop
+               S01:00000106:  51 CB FF F8
+F00:0105       
+F00:0106                   bra.w .commandTest
+               S01:0000010A:  60 00 FF 4A
+F00:0107           .commandBoot:
+F00:0108                   move.l ROM_BASE, A7 ;vector for SP init
+               S01:0000010E:  2E 78 00 00
+F00:0109                   ;reset external devices
+F00:0110                   reset
+               S01:00000112:  4E 70
+F00:0111                   ;clear all registers for good measure
+F00:0112                   clr.l D0
+               S01:00000114:  70 00
+F00:0113                   clr.l D1
+               S01:00000116:  72 00
+F00:0114                   clr.l D2
+               S01:00000118:  74 00
+F00:0115                   clr.l D3
+               S01:0000011A:  76 00
+F00:0116                   clr.l D4
+               S01:0000011C:  78 00
+F00:0117                   clr.l D5
+               S01:0000011E:  7A 00
+F00:0118                   clr.l D6
+               S01:00000120:  7C 00
+F00:0119                   clr.l D7
+               S01:00000122:  7E 00
+F00:0120                   suba.l A0, A0
+               S01:00000124:  91 C8
+F00:0121                   suba.l A1, A1
+               S01:00000126:  93 C9
+F00:0122                   suba.l A2, A2
+               S01:00000128:  95 CA
+F00:0123                   suba.l A3, A3
+               S01:0000012A:  97 CB
+F00:0124                   suba.l A4, A4
+               S01:0000012C:  99 CC
+F00:0125                   suba.l A5, A5
+               S01:0000012E:  9B CD
+F00:0126                   suba.l A6, A6
+               S01:00000130:  9D CE
+F00:0127                   ;jump to reset routine
+F00:0128                   jmp (ROM_BASE + 4).l ;vector for PC init
+               S01:00000132:  4E F9 00 00 00 04
+F00:0129           .commandVersion:
+F00:0130                   move.l #.versionString, A0
+               S01:00000138:  41 FA 00 22
+F00:0131                   move.l A0, -(A7)
+               S01:0000013C:  2F 08
+F00:0132                   bsr UpdaterSerialWrite
+               S01:0000013E:  61 5E
+F00:0133                   addq #4, A7
+               S01:00000140:  58 4F
+F00:0134       
+F00:0135                   bra.w .commandTest
+               S01:00000142:  60 00 FF 12
+F00:0136       
+F00:0137           .text:
+F00:0138                   dc.b "BIOS020 Updater V0.01", $00
+               S01:00000146:  42 49 4F 53 30 32 30 20 55 70 64 61 74 65 72 20
+               S01:00000156:  56 30 2E 30 31
+               S01:0000015B:  00
+F00:0139           .versionString:
+F00:0140                   dc.b "[V0.01]", $00
+               S01:0000015C:  5B 56 30 2E 30 31 5D
+               S01:00000163:  00
+F00:0141           even
+F00:0142       
+F00:0143       UpdaterSerialInit:
+F00:0144               andi.b #$f0, MFP_TCDCR
+               S01:00000164:  02 39 00 F0 40 00 00 0E
+F00:0145               ori.b #$01, MFP_TCDCR
+               S01:0000016C:  00 39 00 01 40 00 00 0E
+F00:0146               move.b #$30, MFP_TDDR ;TDO clock divider for 9600 baud serial
+               S01:00000174:  13 FC 00 30 40 00 00 12
+F00:0147       
+F00:0148               move.b #$08, MFP_UCR ;CLK / 1, 8bit char, no parity
+               S01:0000017C:  13 FC 00 08 40 00 00 14
+F00:0149               move.b #$04, MFP_TSR ;set h flag
+               S01:00000184:  13 FC 00 04 40 00 00 16
+F00:0150               move.b #$05, MFP_TSR ;enable transmitter
+               S01:0000018C:  13 FC 00 05 40 00 00 16
+F00:0151       
+F00:0152               move.b #$01, MFP_RSR ;enable receiver
+               S01:00000194:  13 FC 00 01 40 00 00 15
+F00:0153       
+F00:0154               rts
+               S01:0000019C:  4E 75
+F00:0155       UpdaterSerialWrite:
+F00:0156               move.l (4, A7), A0
+               S01:0000019E:  20 6F 00 04
+F00:0157           .loop:
+F00:0158               btst.b #7, MFP_TSR
+               S01:000001A2:  08 39 00 07 40 00 00 16
+F00:0159               beq.w .loop ;as long as the BE flag is clear loop
+               S01:000001AA:  67 00 FF F6
+F00:0160       
+F00:0161               cmpi.b #$00, (A0)
+               S01:000001AE:  4A 10
+F00:0162               beq.w .return
+               S01:000001B0:  67 00 00 0C
+F00:0163               move.b (A0)+, MFP_UDR
+               S01:000001B4:  13 D8 40 00 00 17
+F00:0164               bra.w .loop
+               S01:000001BA:  60 00 FF E6
+F00:0165           .return:
+F00:0166               rts
+               S01:000001BE:  4E 75
+F00:0167       UpdaterSerialWriteChar:
+F00:0168               btst.b #7, MFP_TSR
+               S01:000001C0:  08 39 00 07 40 00 00 16
+F00:0169               beq.w UpdaterSerialWriteChar
+               S01:000001C8:  67 00 FF F6
+F00:0170       
+F00:0171               move.w (4, A7), D0
+               S01:000001CC:  30 2F 00 04
+F00:0172               move.b D0, MFP_UDR
+               S01:000001D0:  13 C0 40 00 00 17
+F00:0173               rts
+               S01:000001D6:  4E 75
+F00:0174       UpdaterSerialRead:
+F00:0175               btst.b #7, MFP_RSR ;wait until a char is received
+               S01:000001D8:  08 39 00 07 40 00 00 15
+F00:0176               beq.w UpdaterSerialRead
+               S01:000001E0:  67 00 FF F6
+F00:0177       
+F00:0178               move.b MFP_UDR, D0
+               S01:000001E4:  10 39 40 00 00 17
+F00:0179               rts
+               S01:000001EA:  4E 75
+F00:0180       __SerialHexTable:
+F00:0181       		dc.b "0123456789ABCDEF"
+               S01:000001EC:  30 31 32 33 34 35 36 37 38 39 41 42 43 44 45 46
+F00:0182       SerialWriteHex8: ;void (int number)
+F00:0183       		move.l #__SerialHexTable, A0
+               S01:000001FC:  41 FA FF EE
+F00:0184       	.loop0:
+F00:0185       		btst.b #7, MFP_TSR
+               S01:00000200:  08 39 00 07 40 00 00 16
+F00:0186       		beq.w .loop0
+               S01:00000208:  67 00 FF F6
+F00:0187       
+F00:0188       		move.w (4, A7), D0
+               S01:0000020C:  30 2F 00 04
+F00:0189       		andi.w #$00f0, D0
+               S01:00000210:  02 40 00 F0
+F00:0190       		lsr.w #4, D0
+               S01:00000214:  E8 48
+F00:0191       		move.b (0,A0,D0), MFP_UDR
+               S01:00000216:  13 F0 00 00 40 00 00 17
+F00:0192       	.loop1:
+F00:0193       		btst.b #7, MFP_TSR
+               S01:0000021E:  08 39 00 07 40 00 00 16
+F00:0194       		beq.w .loop1
+               S01:00000226:  67 00 FF F6
+F00:0195       
+F00:0196       		move.w (4, A7), D0
+               S01:0000022A:  30 2F 00 04
+F00:0197       		andi.w #$000f, D0
+               S01:0000022E:  02 40 00 0F
+F00:0198       		move.b (0,A0,D0), MFP_UDR
+               S01:00000232:  13 F0 00 00 40 00 00 17
+F00:0199       
+F00:0200       		rts
+               S01:0000023A:  4E 75
+F00:0201       SerialWriteHex16: ;void (int number)
+F00:0202       		move.w (4, A7), D0
+               S01:0000023C:  30 2F 00 04
+F00:0203       		andi.w #$ff00, D0
+               S01:00000240:  02 40 FF 00
+F00:0204       		lsr.w #8, D0
+               S01:00000244:  E0 48
+F00:0205       		move.w D0, -(A7)
+               S01:00000246:  3F 00
+F00:0206       		bsr.w SerialWriteHex8
+               S01:00000248:  61 00 FF B2
+F00:0207       		addq.l #2, A7
+               S01:0000024C:  54 8F
+F00:0208       
+F00:0209       		move.w (4, A7), D0
+               S01:0000024E:  30 2F 00 04
+F00:0210       		andi.w #$00ff, D0
+               S01:00000252:  02 40 00 FF
+F00:0211       		move.w D0, -(A7)
+               S01:00000256:  3F 00
+F00:0212       		bsr.w SerialWriteHex8
+               S01:00000258:  61 00 FF A2
+F00:0213       		addq.l #2, A7
+               S01:0000025C:  54 8F
+F00:0214       
+F00:0215       		rts
+               S01:0000025E:  4E 75
+F00:0216       SerialReadHex16:
+F00:0217       		move.l D2, -(A7)
+               S01:00000260:  2F 02
+F00:0218       		clr.l D1
+               S01:00000262:  72 00
+F00:0219       		move.w #3, D2
+               S01:00000264:  34 3C 00 03
+F00:0220       	.loop:
+F00:0221       		lsl.w #4, D1
+               S01:00000268:  E9 49
+F00:0222       		bsr UpdaterSerialRead
+               S01:0000026A:  61 00 FF 6C
+F00:0223       		subi.b #48, D0
+               S01:0000026E:  04 00 00 30
+F00:0224       		cmpi.b #10, D0
+               S01:00000272:  0C 00 00 0A
+F00:0225       		blo .skip
+               S01:00000276:  65 02
+F00:0226       		subi.b #7, D0
+               S01:00000278:  5F 00
+F00:0227       	.skip:
+F00:0228       		andi.w #$000f, D0
+               S01:0000027A:  02 40 00 0F
+F00:0229       		or.w D0, D1
+               S01:0000027E:  82 40
+F00:0230       		dbra D2, .loop
+               S01:00000280:  51 CA FF E6
+F00:0231       
+F00:0232       		move.l (A7)+, D2
+               S01:00000284:  24 1F
+F00:0233       		move.w D1, D0
+               S01:00000286:  30 01
+F00:0234       		move.w D0, -(A7)
+               S01:00000288:  3F 00
+F00:0235       		bsr SerialWriteHex16
+               S01:0000028A:  61 B0
+F00:0236       		move.w (A7)+, D0
+               S01:0000028C:  30 1F
+F00:0237       		rts
+               S01:0000028E:  4E 75
+F00:0238       SerialReadHex32:
+F00:0239       		move.l D3, -(A7)
+               S01:00000290:  2F 03
+F00:0240       		bsr SerialReadHex16
+               S01:00000292:  61 CC
+F00:0241       		swap D0
+               S01:00000294:  48 40
+F00:0242       		andi.l #$ffff0000, D0
+               S01:00000296:  02 80 FF FF 00 00
+F00:0243       		move.l D0, D3
+               S01:0000029C:  26 00
+F00:0244       		bsr SerialReadHex16
+               S01:0000029E:  61 C0
+F00:0245       		andi.l #$0000ffff, D0
+               S01:000002A0:  02 80 00 00 FF FF
+F00:0246       		or.l D3, D0
+               S01:000002A6:  80 83
+F00:0247       		move.l (A7)+, D3
+               S01:000002A8:  26 1F
+F00:0248       		rts
+               S01:000002AA:  4E 75
+F00:0249       
+F00:0250       
+F00:0251       
+F00:0252       
+F00:0253       
+F00:0254       UpdaterDataBuffer:
+F00:0255               dcb.w 128
+
+
+Sections:
+S01  .text
+
+
+Sources:
+F00  updaterPayload.asm
+F01  system.asm
+
+
+Symbols:
+ SerialReadHex16 .skip LAB (0x27a) sec=.text 
+ SerialReadHex16 .loop LAB (0x268) sec=.text 
+ SerialWriteHex8 .loop1 LAB (0x21e) sec=.text 
+ SerialWriteHex8 .loop0 LAB (0x200) sec=.text 
+SerialWriteHex8 LAB (0x1fc) sec=.text 
+__SerialHexTable LAB (0x1ec) sec=.text 
+ UpdaterSerialWrite .return LAB (0x1be) sec=.text 
+ UpdaterSerialWrite .loop LAB (0x1a2) sec=.text 
+UpdaterSerialInit LAB (0x164) UNUSED sec=.text 
+ UpdaterMain .versionString LAB (0x15c) sec=.text 
+SerialReadHex16 LAB (0x260) sec=.text 
+ UpdaterMain .commandPutLoop LAB (0x100) sec=.text 
+SerialWriteHex16 LAB (0x23c) sec=.text 
+ UpdaterMain .commandGetLoop LAB (0xe8) sec=.text 
+ UpdaterMain .commandWriteWait LAB (0xc0) sec=.text 
+ UpdaterMain .commandWriteLoop LAB (0xb2) sec=.text 
+ UpdaterMain .commandReadLoop LAB (0x72) sec=.text 
+UpdaterDataBuffer LAB (0x2ac) sec=.text 
+SerialReadHex32 LAB (0x290) sec=.text 
+ UpdaterMain .commandTest LAB (0x56) sec=.text 
+ UpdaterMain .commandRead LAB (0x64) sec=.text 
+ UpdaterMain .commandWrite LAB (0x7c) sec=.text 
+ UpdaterMain .commandGet LAB (0xe0) sec=.text 
+ UpdaterMain .commandPut LAB (0xf8) sec=.text 
+ UpdaterMain .commandBoot LAB (0x10e) sec=.text 
+ UpdaterMain .commandVersion LAB (0x138) sec=.text 
+UpdaterSerialWriteChar LAB (0x1c0) sec=.text 
+UpdaterSerialRead LAB (0x1d8) sec=.text 
+ UpdaterMain .commandLoop LAB (0xc) sec=.text 
+UpdaterSerialWrite LAB (0x19e) sec=.text 
+ UpdaterMain .text LAB (0x146) sec=.text 
+UpdaterMain LAB (0x0) UNUSED sec=.text 
+IDE_LBAH EXPR(536870922=0x2000000a) UNUSED EQU 
+IDE_LBAM EXPR(536870920=0x20000008) UNUSED EQU 
+IDE_LBAL EXPR(536870918=0x20000006) UNUSED EQU 
+IDE_DRVA EXPR(805306382=0x3000000e) UNUSED EQU 
+IDE_DIGO EXPR(805306380=0x3000000c) UNUSED EQU 
+IDE_ASTAT EXPR(805306380=0x3000000c) UNUSED EQU 
+IDE_CMD EXPR(536870926=0x2000000e) UNUSED EQU 
+IDE_WP EXPR(536870914=0x20000002) UNUSED EQU 
+IDE_STAT EXPR(536870926=0x2000000e) UNUSED EQU 
+IDE_SDH EXPR(536870924=0x2000000c) UNUSED EQU 
+IDE_CH EXPR(536870922=0x2000000a) UNUSED EQU 
+IDE_CL EXPR(536870920=0x20000008) UNUSED EQU 
+IDE_SN EXPR(536870918=0x20000006) UNUSED EQU 
+IDE_SC EXPR(536870916=0x20000004) UNUSED EQU 
+IDE_E EXPR(536870914=0x20000002) UNUSED EQU 
+IDE_D EXPR(536870912=0x20000000) UNUSED EQU 
+MFP_UDR EXPR(1073741847=0x40000017) EQU 
+MFP_TSR EXPR(1073741846=0x40000016) EQU 
+MFP_RSR EXPR(1073741845=0x40000015) EQU 
+MFP_UCR EXPR(1073741844=0x40000014) EQU 
+MFP_SCR EXPR(1073741843=0x40000013) UNUSED EQU 
+MFP_TDDR EXPR(1073741842=0x40000012) EQU 
+MFP_TCDR EXPR(1073741841=0x40000011) UNUSED EQU 
+MFP_TBDR EXPR(1073741840=0x40000010) UNUSED EQU 
+MFP_TADR EXPR(1073741839=0x4000000f) UNUSED EQU 
+MFP_TCDCR EXPR(1073741838=0x4000000e) EQU 
+MFP_TBCR EXPR(1073741837=0x4000000d) UNUSED EQU 
+MFP_TACR EXPR(1073741836=0x4000000c) UNUSED EQU 
+MFP_VR EXPR(1073741835=0x4000000b) UNUSED EQU 
+MFP_IMRB EXPR(1073741834=0x4000000a) UNUSED EQU 
+MFP_IMRA EXPR(1073741833=0x40000009) UNUSED EQU 
+MFP_ISRB EXPR(1073741832=0x40000008) UNUSED EQU 
+MFP_ISRA EXPR(1073741831=0x40000007) UNUSED EQU 
+MFP_IPRB EXPR(1073741830=0x40000006) UNUSED EQU 
+MFP_IPRA EXPR(1073741829=0x40000005) UNUSED EQU 
+MFP_IERB EXPR(1073741828=0x40000004) UNUSED EQU 
+MFP_IERA EXPR(1073741827=0x40000003) UNUSED EQU 
+MFP_DDR EXPR(1073741826=0x40000002) UNUSED EQU 
+MFP_AER EXPR(1073741825=0x40000001) UNUSED EQU 
+MFP_GPDR EXPR(1073741824=0x40000000) UNUSED EQU 
+STACK_INIT EXPR(269484032=0x10100000) UNUSED EQU 
+IDE1_BASE EXPR(805306368=0x30000000) EQU 
+IDE0_BASE EXPR(536870912=0x20000000) EQU 
+MFP_BASE EXPR(1073741824=0x40000000) EQU 
+RAM_PAGES EXPR(1024=0x400) UNUSED EQU 
+RAM_TOP EXPR(269484032=0x10100000) EQU 
+RAM_SIZE EXPR(1048576=0x100000) EQU 
+RAM_BASE EXPR(268435456=0x10000000) EQU 
+ROM_TOP EXPR(262144=0x40000) UNUSED EQU 
+ROM_SIZE EXPR(262144=0x40000) EQU 
+ROM_BASE EXPR(0=0x0) EQU 
+_MOVEMBYTES EXPR(0=0x0) INTERNAL 
+ MOVEMSIZE EXPR(0=0x0) INTERNAL 
+_MOVEMREGS EXPR(0=0x0) INTERNAL 
+__VASM EXPR(4=0x4) INTERNAL 
+__UNIXFS EXPR(0=0x0) INTERNAL 
+
+There have been no errors.

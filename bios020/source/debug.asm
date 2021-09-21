@@ -10,3 +10,6 @@ Main:
 		move.w IDE1_BASE, D0
 		move.b MFP_BASE, D0
 		jmp Main.l
+
+SerialRXHandler:
+		rte

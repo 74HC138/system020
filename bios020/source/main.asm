@@ -5,15 +5,32 @@ org ROM_BASE
 .include "vector.asm"
 .include "serial.asm"
 .include "ide.asm"
+.include "updater.asm"
+.include "compostfetch.asm"
 
 Main:
-		jsr SerialInit
+		bsr SerialInit
+
+		;bra UpdaterInit
+
+		move.l #CompostFetch, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		stop #$ffff
+
+
+
+
 		move.l #.text0, -(A7)
 		jsr SerialWrite
 		addq.l #4, A7
+
+
 		bsr getBootblockCount
-		move.w D0, D2 ;move bootblock count to trash proof register
-		jsr SerialWriteDec16
+		move.l D0, D2 ;move bootblock count to trash proof register
+		move.l D0, -(A7)
+		jsr SerialWriteDec32
+		addq.l #4, A7
 		move.w '\n', -(A7)
 		jsr SerialWriteChar
 		addq.l #2, A7
@@ -21,22 +38,22 @@ Main:
 		andi.w #$f8ff, SR
 
 	.loop:
-		move.w IDE0_BASE, D0
+		move.w IDE1_BASE, D0
 		bra.l .loop
 
 	.text0:
 	;ascii text font Doom (www.coolgenerator.com/ascii-text-generator)
 		dc.b "\n\n"
-		dc.b "______ _____ _____ _____  _____  _____  _____\n"
-		dc.b "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
-		dc.b "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
-		dc.b "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
-		dc.b "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
-		dc.b "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
-		dc.b "\n\n"
-		dc.b "Bootblocks found:", $00
+                dc.b "\e[91m", "______ _____ _____ _____  _____  _____  _____\n"
+                dc.b "\e[92m", "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
+                dc.b "\e[93m", "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
+                dc.b "\e[94m", "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
+                dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
+                dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
+                dc.b "\e[0m\n\n"
+                dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
+	even
 
-even
 getBootblockCount:
 		move.l #12345, D0
 		rts
