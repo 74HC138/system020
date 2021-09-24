@@ -85,3 +85,70 @@ TaskInit: ;void TaskInit(void* initPC)
         jmp ($04)
 
 
+TaskCreate: ;uint32_t TaskCreate(void* PCinit, uint32_t stackSize)
+        ;stackSize: ($04, A7)
+        ;PCinit: ($08, A7)
+        move.l #__TimerExceptionText, A0
+        cmpi.l #0, I_TASK_BASE
+        trapeq
+        move.l D2, -(A7)
+        move.l I_TASK_BASE, A0
+        ;find free pid
+        move.l ($0C, A0), D0
+        move.l #1, D1
+        move.l ($04, A0), A1
+    .loop0:
+        move.l #0, D2
+    .loop1:
+        addq.l #1, D2
+        cmp.l  D0, D2
+        beq .found
+        cmp.w D1, (A1, D2.l*2)
+        bne .loop1
+        addq.l #1, D1
+        cmpi.l #$00010000, D1
+        beq .error
+        bra .loop0
+    .found:
+        move.l (A7)+, D2
+        move.l D1, D7
+        
+        move.l ($04, A7), -(A7)
+        move.w D7, -(A7)
+        bsr Malloc
+        addq.l #6, A7
+        cmpi.l #0, D0
+        beq .error
+
+        move.l I_TASK_BASE, A0
+        move.l ($00, A0), A1
+        move.l ($08, A0), D1
+        subq.l #1, D1
+        move.l D0, ($00, A1, D1.l*4)
+        
+        move.l ($04, A0), A1
+        move.l D7, ($00, A1, D1.l*4)
+
+
+
+    .error:
+        move.l #$ffffffff, D0
+        rts
+
+TaskEnd: ;uint32_t TaskEnd(uint16_t pid)
+
+TaskExit: ;void TaskExit(uint32_t exitCode)
+
+TaskSetName: ;uint32_t TaskSetName(uint16_t pid, char* nameString)
+
+TaskGetName: ;char* TaskGetName(uint16_t pid)
+
+TaskGetRunning: ;uint32_t TaskGetRunning(uint16_t* pidList, uint32_t listLength)
+
+TaskGetRunnignCount: ;uint32_t TaskGetRunningCount()
+
+TaskGetCurrent: ;uint16_t TaskGetCurrent()
+
+__TaskExceptionText:
+        dc.b "I_TASK_BASE not allocated", $00
+        even
