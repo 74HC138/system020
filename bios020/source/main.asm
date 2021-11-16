@@ -11,15 +11,14 @@ org ROM_BASE
 Main:
 		bsr SerialInit
 
-		;bra UpdaterInit
+		bclr #2, MFP_DDR
+		btst #2, MFP_GPDR ;test if userinterrupt button is pressed
+		beq UpdaterInit ;if pressed jump to updater
 
 		move.l #CompostFetch, -(A7)
 		bsr SerialWrite
 		addq.l #4, A7
 		stop #$ffff
-
-
-
 
 		move.l #.text0, -(A7)
 		jsr SerialWrite

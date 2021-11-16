@@ -52,7 +52,7 @@ UpdaterMain:
             move.l D0, A0
 			andi.l #$ff000000, D0
 			move.l D0, A1
-            move.l #UpdaterDataBuffer, A1
+            move.l #UpdaterDataBuffer, A2
             move.w #127, D0
 
             ;there be ghosts beyond here
@@ -63,11 +63,11 @@ UpdaterMain:
             move.w #$A0A0, ($AAAA, A1)
             ;fill up internal buffer
         .commandWriteLoop:
-            move.w (A1)+, (A0)+
-
-            dbra D1, .commandWriteLoop
+            move.w (A2)+, (A0)+
+            dbra D0, .commandWriteLoop
+			
             ;wait until programming is done
-            move.w -(A1), D0
+            move.w -(A2), D0
             andi.w #$8080, D0
             subq.l #2, A0
         .commandWriteWait: ;test for inverted data bit 7. If inverted then the write operation is not finished

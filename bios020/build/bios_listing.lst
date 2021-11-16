@@ -262,12 +262,12 @@ F03:0003       		andi.b #$f0, MFP_TCDCR
                S01:0000040C:  02 39 00 F0 40 00 00 0E
 F03:0004       		ori.b #$01, MFP_TCDCR
                S01:00000414:  00 39 00 01 40 00 00 0E
-F03:0005       		;move.b #$30, MFP_TDDR ;TDO clock divider for 9600 baud serial
-F03:0006       		move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
-               S01:0000041C:  13 FC 00 04 40 00 00 12
+F03:0005       		move.b #$3, MFP_TDDR ;TDO clock divider for 9600 baud serial
+               S01:0000041C:  13 FC 00 03 40 00 00 12
+F03:0006       		;move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
 F03:0007       
-F03:0008       		move.b #$08, MFP_UCR ;CLK / 1, 8bit char, no parity
-               S01:00000424:  13 FC 00 08 40 00 00 14
+F03:0008       		move.b #$88, MFP_UCR ;CLK / 16, 8bit char, no parity
+               S01:00000424:  13 FC 00 88 40 00 00 14
 F03:0009       		move.b #$04, MFP_TSR ;set h flag
                S01:0000042C:  13 FC 00 04 40 00 00 16
 F03:0010       		move.b #$05, MFP_TSR ;enable transmitter
@@ -857,116 +857,118 @@ F00:0011       Main:
 F00:0012       		bsr SerialInit
                S01:000010EE:  61 00 F3 1C
 F00:0013       
-F00:0014       		;bra UpdaterInit
-F00:0015       
-F00:0016       		move.l #CompostFetch, -(A7)
-               S01:000010F2:  2F 3C 00 00 0A 70
-F00:0017       		bsr SerialWrite
-               S01:000010F8:  61 00 F3 64
-F00:0018       		addq.l #4, A7
-               S01:000010FC:  58 8F
-F00:0019       		stop #$ffff
-               S01:000010FE:  4E 72 FF FF
-F00:0020       
-F00:0021       
+F00:0014       		bclr #2, MFP_DDR
+               S01:000010F2:  08 B9 00 02 40 00 00 02
+F00:0015       		btst #2, MFP_GPDR ;test if userinterrupt button is pressed
+               S01:000010FA:  08 39 00 02 40 00 00 00
+F00:0016       		beq UpdaterInit ;if pressed jump to updater
+               S01:00001102:  67 00 F5 64
+F00:0017       
+F00:0018       		move.l #CompostFetch, -(A7)
+               S01:00001106:  2F 3C 00 00 0A 70
+F00:0019       		bsr SerialWrite
+               S01:0000110C:  61 00 F3 50
+F00:0020       		addq.l #4, A7
+               S01:00001110:  58 8F
+F00:0021       		stop #$ffff
+               S01:00001112:  4E 72 FF FF
 F00:0022       
-F00:0023       
-F00:0024       		move.l #.text0, -(A7)
-               S01:00001102:  2F 3C 00 00 11 36
-F00:0025       		jsr SerialWrite
-               S01:00001108:  4E B8 04 5E
-F00:0026       		addq.l #4, A7
-               S01:0000110C:  58 8F
+F00:0023       		move.l #.text0, -(A7)
+               S01:00001116:  2F 3C 00 00 11 4A
+F00:0024       		jsr SerialWrite
+               S01:0000111C:  4E B8 04 5E
+F00:0025       		addq.l #4, A7
+               S01:00001120:  58 8F
+F00:0026       
 F00:0027       
-F00:0028       
-F00:0029       		bsr getBootblockCount
-               S01:0000110E:  61 00 01 7E
-F00:0030       		move.l D0, D2 ;move bootblock count to trash proof register
-               S01:00001112:  24 00
-F00:0031       		move.l D0, -(A7)
-               S01:00001114:  2F 00
-F00:0032       		jsr SerialWriteDec32
-               S01:00001116:  4E B8 05 26
-F00:0033       		addq.l #4, A7
-               S01:0000111A:  58 8F
-F00:0034       		move.w '\n', -(A7)
-               S01:0000111C:  3F 38 00 0A
-F00:0035       		jsr SerialWriteChar
-               S01:00001120:  4E B8 04 80
-F00:0036       		addq.l #2, A7
-               S01:00001124:  54 8F
-F00:0037       
-F00:0038       		andi.w #$f8ff, SR
-               S01:00001126:  02 7C F8 FF
-F00:0039       
-F00:0040       	.loop:
-F00:0041       		move.w IDE1_BASE, D0
-               S01:0000112A:  30 39 30 00 00 00
-F00:0042       		bra.l .loop
-               S01:00001130:  60 FF FF FF FF F8
-F00:0043       
-F00:0044       	.text0:
-F00:0045       	;ascii text font Doom (www.coolgenerator.com/ascii-text-generator)
-F00:0046       		dc.b "\n\n"
-               S01:00001136:  0A 0A
-F00:0047                       dc.b "\e[91m", "______ _____ _____ _____  _____  _____  _____\n"
-               S01:00001138:  1B 5B 39 31 6D
-               S01:0000113D:  5F 5F 5F 5F 5F 5F 20 5F 5F 5F 5F 5F 20 5F 5F 5F
-               S01:0000114D:  5F 5F 20 5F 5F 5F 5F 5F 20 20 5F 5F 5F 5F 5F 20
-F00:0048                       dc.b "\e[92m", "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
-               S01:0000116B:  1B 5B 39 32 6D
-               S01:00001170:  7C 20 5F 5F 5F 20 5C 5F 20 20 20 5F 7C 20 20 5F
-               S01:00001180:  20 20 2F 20 20 5F 5F 5F 7C 7C 20 20 5F 20 20 7C
-F00:0049                       dc.b "\e[93m", "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
-               S01:0000119F:  1B 5B 39 33 6D
-               S01:000011A4:  7C 20 7C 5F 2F 20 2F 20 7C 20 7C 20 7C 20 7C 20
-               S01:000011B4:  7C 20 5C 20 60 2D 2D 2E 20 7C 20 7C 2F 27 20 7C
-F00:0050                       dc.b "\e[94m", "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
-               S01:000011D3:  1B 5B 39 34 6D
-               S01:000011D8:  7C 20 5F 5F 5F 20 5C 20 7C 20 7C 20 7C 20 7C 20
-               S01:000011E8:  7C 20 7C 60 2D 2D 2E 20 5C 7C 20 20 2F 7C 20 7C
-F00:0051                       dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
-               S01:00001207:  1B 5B 39 35 6D
-               S01:0000120C:  7C 20 7C 5F 2F 20 2F 5F 7C 20 7C 5F 5C 20 5C 5F
-               S01:0000121C:  2F 20 2F 5C 5F 5F 2F 20 2F 5C 20 7C 5F 2F 20 2F
-F00:0052                       dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
-               S01:0000123B:  1B 5B 39 36 6D
-               S01:00001240:  5C 5F 5F 5F 5F 2F 20 5C 5F 5F 5F 2F 20 5C 5F 5F
-               S01:00001250:  5F 2F 5C 5F 5F 5F 5F 2F 20 20 5C 5F 5F 5F 2F 20
-F00:0053                       dc.b "\e[0m\n\n"
-               S01:0000126D:  1B 5B 30 6D 0A 0A
-F00:0054                       dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
-               S01:00001273:  1B 5B 31 6D
-               S01:00001277:  42 6F 6F 74 62 6C 6F 63 6B 73 20 66 6F 75 6E 64
-               S01:00001287:  3A
-               S01:00001288:  1B 5B 30 6D
-               S01:0000128C:  00
-F00:0055       	even
-F00:0056       
-F00:0057       getBootblockCount:
-F00:0058       		move.l #12345, D0
-               S01:0000128E:  20 3C 00 00 30 39
-F00:0059       		rts
-               S01:00001294:  4E 75
+F00:0028       		bsr getBootblockCount
+               S01:00001122:  61 00 01 7E
+F00:0029       		move.l D0, D2 ;move bootblock count to trash proof register
+               S01:00001126:  24 00
+F00:0030       		move.l D0, -(A7)
+               S01:00001128:  2F 00
+F00:0031       		jsr SerialWriteDec32
+               S01:0000112A:  4E B8 05 26
+F00:0032       		addq.l #4, A7
+               S01:0000112E:  58 8F
+F00:0033       		move.w '\n', -(A7)
+               S01:00001130:  3F 38 00 0A
+F00:0034       		jsr SerialWriteChar
+               S01:00001134:  4E B8 04 80
+F00:0035       		addq.l #2, A7
+               S01:00001138:  54 8F
+F00:0036       
+F00:0037       		andi.w #$f8ff, SR
+               S01:0000113A:  02 7C F8 FF
+F00:0038       
+F00:0039       	.loop:
+F00:0040       		move.w IDE1_BASE, D0
+               S01:0000113E:  30 39 30 00 00 00
+F00:0041       		bra.l .loop
+               S01:00001144:  60 FF FF FF FF F8
+F00:0042       
+F00:0043       	.text0:
+F00:0044       	;ascii text font Doom (www.coolgenerator.com/ascii-text-generator)
+F00:0045       		dc.b "\n\n"
+               S01:0000114A:  0A 0A
+F00:0046                       dc.b "\e[91m", "______ _____ _____ _____  _____  _____  _____\n"
+               S01:0000114C:  1B 5B 39 31 6D
+               S01:00001151:  5F 5F 5F 5F 5F 5F 20 5F 5F 5F 5F 5F 20 5F 5F 5F
+               S01:00001161:  5F 5F 20 5F 5F 5F 5F 5F 20 20 5F 5F 5F 5F 5F 20
+F00:0047                       dc.b "\e[92m", "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
+               S01:0000117F:  1B 5B 39 32 6D
+               S01:00001184:  7C 20 5F 5F 5F 20 5C 5F 20 20 20 5F 7C 20 20 5F
+               S01:00001194:  20 20 2F 20 20 5F 5F 5F 7C 7C 20 20 5F 20 20 7C
+F00:0048                       dc.b "\e[93m", "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
+               S01:000011B3:  1B 5B 39 33 6D
+               S01:000011B8:  7C 20 7C 5F 2F 20 2F 20 7C 20 7C 20 7C 20 7C 20
+               S01:000011C8:  7C 20 5C 20 60 2D 2D 2E 20 7C 20 7C 2F 27 20 7C
+F00:0049                       dc.b "\e[94m", "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
+               S01:000011E7:  1B 5B 39 34 6D
+               S01:000011EC:  7C 20 5F 5F 5F 20 5C 20 7C 20 7C 20 7C 20 7C 20
+               S01:000011FC:  7C 20 7C 60 2D 2D 2E 20 5C 7C 20 20 2F 7C 20 7C
+F00:0050                       dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
+               S01:0000121B:  1B 5B 39 35 6D
+               S01:00001220:  7C 20 7C 5F 2F 20 2F 5F 7C 20 7C 5F 5C 20 5C 5F
+               S01:00001230:  2F 20 2F 5C 5F 5F 2F 20 2F 5C 20 7C 5F 2F 20 2F
+F00:0051                       dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
+               S01:0000124F:  1B 5B 39 36 6D
+               S01:00001254:  5C 5F 5F 5F 5F 2F 20 5C 5F 5F 5F 2F 20 5C 5F 5F
+               S01:00001264:  5F 2F 5C 5F 5F 5F 5F 2F 20 20 5C 5F 5F 5F 2F 20
+F00:0052                       dc.b "\e[0m\n\n"
+               S01:00001281:  1B 5B 30 6D 0A 0A
+F00:0053                       dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
+               S01:00001287:  1B 5B 31 6D
+               S01:0000128B:  42 6F 6F 74 62 6C 6F 63 6B 73 20 66 6F 75 6E 64
+               S01:0000129B:  3A
+               S01:0000129C:  1B 5B 30 6D
+               S01:000012A0:  00
+F00:0054       	even
+F00:0055       
+F00:0056       getBootblockCount:
+F00:0057       		move.l #12345, D0
+               S01:000012A2:  20 3C 00 00 30 39
+F00:0058       		rts
+               S01:000012A8:  4E 75
+F00:0059       
 F00:0060       
-F00:0061       
-F00:0062       BIOS_END:
-F00:0063       ;Alignment hack because madmac does not support alignment to an arbitary size
-F00:0064       ;This align is needed because right after the bios follows the first bootblock but that has to be aligned to 256 bytes b
-F00:0065       ;(actually 128 bytes per page but because we use two eeproms (29ee010) in tandem the page size is twice as large)
-F00:0066       ;If the target to compile to has a different page size this has to be changed
-F00:0067       ;I advice not to look at this code for to long. If it works dont change it...
-F00:0068       if ((BIOS_END & $ff) != 0) ;check if alligned to 256 byte boundry
-F00:0069       	ds.b 256 - (BIOS_END & $ff) ;if not alligned then add filler
-F00:0070       endif
-F00:0071       print "BIOS_END: ", /d/l BIOS_END
-F00:0072       
-F00:0073       FIRST_BOOTBLOCK:
-F00:0074       ;the first bootblock starts here
-F00:0075       print "FIRST_BOOTBLOCK: ", /d/l FIRST_BOOTBLOCK
-F00:0076       print "Filled bytes: ", /d FIRST_BOOTBLOCK - BIOS_END
-F00:0077       
-F00:0078       .include "ramdefs.asm"
+F00:0061       BIOS_END:
+F00:0062       ;Alignment hack because madmac does not support alignment to an arbitary size
+F00:0063       ;This align is needed because right after the bios follows the first bootblock but that has to be aligned to 256 bytes b
+F00:0064       ;(actually 128 bytes per page but because we use two eeproms (29ee010) in tandem the page size is twice as large)
+F00:0065       ;If the target to compile to has a different page size this has to be changed
+F00:0066       ;I advice not to look at this code for to long. If it works dont change it...
+F00:0067       if ((BIOS_END & $ff) != 0) ;check if alligned to 256 byte boundry
+F00:0068       	ds.b 256 - (BIOS_END & $ff) ;if not alligned then add filler
+F00:0069       endif
+F00:0070       print "BIOS_END: ", /d/l BIOS_END
+F00:0071       
+F00:0072       FIRST_BOOTBLOCK:
+F00:0073       ;the first bootblock starts here
+F00:0074       print "FIRST_BOOTBLOCK: ", /d/l FIRST_BOOTBLOCK
+F00:0075       print "Filled bytes: ", /d FIRST_BOOTBLOCK - BIOS_END
+F00:0076       
+F00:0077       .include "ramdefs.asm"
 F07:0001       abs RAM_BASE
 F07:0002       
 F07:0003       __SerialRingbuffer: ;clean ringbuffer
@@ -976,7 +978,7 @@ F07:0006       		ds.w 1
 F07:0007       __SerialRBWrite: ;write index into ringbuffer
 F07:0008       		ds.w 1
 F07:0009       
-F00:0079       
+F00:0078       
 
 
 Sections:
@@ -996,17 +998,17 @@ F07  ramdefs.asm
 
 Symbols:
 FIRST_BOOTBLOCK EXPR(4864=0x1300) ABS 
-BIOS_END EXPR(4758=0x1296) ABS 
- Main .loop EXPR(4394=0x112a) ABS 
-getBootblockCount EXPR(4750=0x128e) ABS 
- Main .text0 EXPR(4406=0x1136) ABS 
+BIOS_END EXPR(4778=0x12aa) ABS 
+ Main .loop EXPR(4414=0x113e) ABS 
+getBootblockCount EXPR(4770=0x12a2) ABS 
+ Main .text0 EXPR(4426=0x114a) ABS 
 CompostFetch EXPR(2672=0xa70) ABS 
  UpdaterInit .text1 EXPR(1714=0x6b2) ABS 
  UpdaterInit .payload_end EXPR(2672=0xa70) ABS 
  UpdaterInit .loop EXPR(1662=0x67e) ABS 
  UpdaterInit .payload_start EXPR(1732=0x6c4) ABS 
  UpdaterInit .text0 EXPR(1690=0x69a) ABS 
-UpdaterInit EXPR(1640=0x668) UNUSED ABS 
+UpdaterInit EXPR(1640=0x668) ABS 
 IdeInit EXPR(1638=0x666) UNUSED ABS 
  SerialHexdump .outLoop EXPR(1574=0x626) ABS 
  SerialHexdump .text EXPR(1634=0x662) ABS 
@@ -1077,9 +1079,9 @@ MFP_IPRB EXPR(1073741830=0x40000006) UNUSED EQU
 MFP_IPRA EXPR(1073741829=0x40000005) UNUSED EQU 
 MFP_IERB EXPR(1073741828=0x40000004) UNUSED EQU 
 MFP_IERA EXPR(1073741827=0x40000003) EQU 
-MFP_DDR EXPR(1073741826=0x40000002) UNUSED EQU 
+MFP_DDR EXPR(1073741826=0x40000002) EQU 
 MFP_AER EXPR(1073741825=0x40000001) UNUSED EQU 
-MFP_GPDR EXPR(1073741824=0x40000000) UNUSED EQU 
+MFP_GPDR EXPR(1073741824=0x40000000) EQU 
 STACK_INIT EXPR(269484032=0x10100000) EQU 
 IDE1_BASE EXPR(805306368=0x30000000) EQU 
 IDE0_BASE EXPR(536870912=0x20000000) EQU 

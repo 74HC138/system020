@@ -156,8 +156,8 @@ F00:0053       			andi.l #$ff000000, D0
                S01:00000088:  02 80 FF 00 00 00
 F00:0054       			move.l D0, A1
                S01:0000008E:  22 40
-F00:0055                   move.l #UpdaterDataBuffer, A1
-               S01:00000090:  43 FA 02 1A
+F00:0055                   move.l #UpdaterDataBuffer, A2
+               S01:00000090:  45 FA 02 1A
 F00:0056                   move.w #127, D0
                S01:00000094:  30 3C 00 7F
 F00:0057       
@@ -172,14 +172,14 @@ F00:0063                   move.w #$A0A0, ($AAAA, A1)
                S01:000000A8:  33 BC A0 A0 01 70 00 00 AA AA
 F00:0064                   ;fill up internal buffer
 F00:0065               .commandWriteLoop:
-F00:0066                   move.w (A1)+, (A0)+
-               S01:000000B2:  30 D9
-F00:0067       
-F00:0068                   dbra D1, .commandWriteLoop
-               S01:000000B4:  51 C9 FF FC
+F00:0066                   move.w (A2)+, (A0)+
+               S01:000000B2:  30 DA
+F00:0067                   dbra D0, .commandWriteLoop
+               S01:000000B4:  51 C8 FF FC
+F00:0068       			
 F00:0069                   ;wait until programming is done
-F00:0070                   move.w -(A1), D0
-               S01:000000B8:  30 21
+F00:0070                   move.w -(A2), D0
+               S01:000000B8:  30 22
 F00:0071                   andi.w #$8080, D0
                S01:000000BA:  02 40 80 80
 F00:0072                   subq.l #2, A0

@@ -49,3 +49,12 @@ InterruptGet: ;void* InterruptGet(uint16_t interruptVector)
 		move.l I_RAM_VBR, A0
 		move.l (A0, D0.w*4), D0
 		rts
+
+InterruptClear: ;void InterruptClear(uint16_t interruptVector)
+		;interruptVector: ($04, A7)
+		clr.l D0
+		move.w ($04, A7), D0
+		andi.w #$00ff, D0
+		move.l I_RAM_VBR, A0
+		move.l (#__IgnoreInterrupt, PC), (A0, D0.w*4)
+		rts

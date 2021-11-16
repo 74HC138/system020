@@ -2,10 +2,10 @@
 SerialInit:
 		andi.b #$f0, MFP_TCDCR
 		ori.b #$01, MFP_TCDCR
-		;move.b #$30, MFP_TDDR ;TDO clock divider for 9600 baud serial
-		move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
+		move.b #$3, MFP_TDDR ;TDO clock divider for 9600 baud serial
+		;move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
 
-		move.b #$08, MFP_UCR ;CLK / 1, 8bit char, no parity
+		move.b #$88, MFP_UCR ;CLK / 16, 8bit char, no parity
 		move.b #$04, MFP_TSR ;set h flag
 		move.b #$05, MFP_TSR ;enable transmitter
 
