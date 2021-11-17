@@ -18,23 +18,18 @@ Main:
 		move.l #CompostFetch, -(A7)
 		bsr SerialWrite
 		addq.l #4, A7
-		stop #$ffff
 
 		move.l #.text0, -(A7)
-		jsr SerialWrite
+		bsr SerialWrite
 		addq.l #4, A7
 
+		andi.w #$f8ff, SR
 
 		bsr getBootblockCount
 		move.l D0, D2 ;move bootblock count to trash proof register
 		move.l D0, -(A7)
-		jsr SerialWriteDec32
+		bsr SerialWriteDec32
 		addq.l #4, A7
-		move.w '\n', -(A7)
-		jsr SerialWriteChar
-		addq.l #2, A7
-
-		andi.w #$f8ff, SR
 
 	.loop:
 		move.w IDE1_BASE, D0
@@ -63,7 +58,6 @@ BIOS_END:
 ;This align is needed because right after the bios follows the first bootblock but that has to be aligned to 256 bytes because the eeprom has 256 bytes per page
 ;(actually 128 bytes per page but because we use two eeproms (29ee010) in tandem the page size is twice as large)
 ;If the target to compile to has a different page size this has to be changed
-;I advice not to look at this code for to long. If it works dont change it...
 if ((BIOS_END & $ff) != 0) ;check if alligned to 256 byte boundry
 	ds.b 256 - (BIOS_END & $ff) ;if not alligned then add filler
 endif

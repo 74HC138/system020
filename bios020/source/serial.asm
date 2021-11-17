@@ -100,7 +100,7 @@ SerialWriteDec32: ;void (long number)
 		move.l (4, A7), D0
 		move.l D2, -(A7)
 		clr.l D2
-		move.l #__SerialHexTable, A0
+		clr.l D1
 
 	.divLoop:
 		cmpi.l #0, D0
@@ -108,16 +108,16 @@ SerialWriteDec32: ;void (long number)
 		divul.l #10, D1:D0
 		move.w D1, -(A7)
 		addq.w #1, D2
-		bra.w .divLoop
+		bra .divLoop
 
 	.display:
 		cmpi.w #0, D2
-		beq.w .return
+		beq .return
 		move.w (A7)+, D0
 		addi.b #'0', D0
 	.waitMfp:
 		btst.b #7, MFP_TSR
-                beq.w .waitMfp
+        beq.w .waitMfp
 		move.b D0, MFP_UDR
 		subq #1, D2
 		bra.w .display

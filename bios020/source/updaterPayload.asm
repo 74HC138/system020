@@ -1,7 +1,8 @@
 .include "system.asm"
 
 UpdaterMain:
-        ;bsr.w UpdaterSerialInit
+		bsr UpdaterSerialInit
+
         move.l #.text, A0
         move.l A0, -(A7)
         bsr UpdaterSerialWrite
@@ -46,8 +47,9 @@ UpdaterMain:
             bra.w .commandTest ;terminate command and return to command receive loop       
 
     .commandWrite:
-
             bsr SerialReadHex32
+			move.l D0, D2
+			move.l D2, D0
 			andi.l #$ffffff00, D0
             move.l D0, A0
 			andi.l #$ff000000, D0
@@ -101,10 +103,15 @@ UpdaterMain:
         .commandPutLoop:
 			bsr SerialReadHex16
             move.w D0, (A3)+
+			move.w #'.', -(A7)
+			bsr UpdaterSerialWriteChar
+			addq.l #2, A7
             dbra D3, .commandPutLoop
 
             bra.w .commandTest
     .commandBoot:
+			move.l #ROM_BASE, D0
+			movec.l D0, VBR ;reset to initial VBR location
             move.l ROM_BASE, A7 ;vector for SP init
             ;reset external devices
             reset
@@ -143,9 +150,9 @@ UpdaterMain:
 UpdaterSerialInit:
         andi.b #$f0, MFP_TCDCR
         ori.b #$01, MFP_TCDCR
-        move.b #$30, MFP_TDDR ;TDO clock divider for 9600 baud serial
+        move.b #$3, MFP_TDDR ;TDO clock divider for 9600 baud serial
 
-        move.b #$08, MFP_UCR ;CLK / 1, 8bit char, no parity
+        move.b #$88, MFP_UCR ;CLK / 16, 8bit char, no parity
         move.b #$04, MFP_TSR ;set h flag
         move.b #$05, MFP_TSR ;enable transmitter
 
@@ -246,8 +253,16 @@ SerialReadHex32:
 		or.l D3, D0
 		move.l (A7)+, D3
 		rts
-
-
+SerialXON:
+		move.w #$11, -(A7)
+		bsr UpdaterSerialWriteChar
+		addq.l #2, A7
+		rts
+SerialXOFF:
+		move.w #$11, -(A7)
+		bsr UpdaterSerialWriteChar
+		addq.l #2, A7
+		rts
 
 
 
