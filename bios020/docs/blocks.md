@@ -1,3 +1,7 @@
+<div>
+    <image src="https://raw.githubusercontent.com/74HC138/system020/dev/images/logo_bb.png" alt="logo" style="width:15%;height:15%;display:block;margin-left:auto;margin-right:auto">
+</div>
+
 # Blocks
 Blocks are chunks of ROM that can house filesystems or raw programms. The BIOS trys to mount the first block as a FAT filesystem automaticly.
 
