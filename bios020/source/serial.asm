@@ -145,7 +145,6 @@ SerialRXHandler: ;void ()
 		move.l #__SerialRingbuffer, A0
 		move.w __SerialRBWrite, D0
 		move.b MFP_UDR, D1
-		move.b D1, MFP_UDR
 		andi.w #$00ff, D1
 		move.w D1, (0, A0, D0.w*2)
 		addq.w #1, D0
@@ -171,9 +170,12 @@ SerialRead: ;int ()
 		cmp.w #0, D0
 		beq .return ;no data in the buffer, return
 
-		move.w (__SerialRBRead), D0
+		move.w __SerialRBRead, D1
 		move.l __SerialRingbuffer, A0
-		move.w (0, A0, D0.w*2), D0
+		move.w (0, A0, D1.w*2), D0
+		addq.w #1, D1
+		andi.w #$00ff, D1
+		move.w D1	, __SerialRBRead
 
 	.return:
 		rts

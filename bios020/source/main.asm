@@ -7,6 +7,7 @@ org ROM_BASE
 .include "ide.asm"
 .include "updater.asm"
 .include "compostfetch.asm"
+.include "string.asm"
 
 Main:
 		bsr SerialInit
@@ -23,6 +24,10 @@ Main:
 		bsr SerialWrite
 		addq.l #4, A7
 
+		move.l #.text2, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+
 		andi.w #$f8ff, SR
 
 		bsr getBootblockCount
@@ -31,22 +36,91 @@ Main:
 		bsr SerialWriteDec32
 		addq.l #4, A7
 
-	.loop:
-		move.w IDE1_BASE, D0
-		bra.l .loop
+		move.l #__CommandBuffer, A2
+		clr.l D2
+
+	.cmdLoop:
+		bsr SerialAvailable
+		cmpi.b #0, D0
+		beq .cmdLoop
+		bsr SerialRead
+		move.w D0, -(A7)
+		bsr SerialWriteChar
+		move.w (A7)+, D0
+		cmp.w '\n', D0
+		beq .cmdInterpret
+		move.w D0, (A2, D2.w*2)
+		addq.w #1, D2
+		bra .cmdLoop
+
+	.cmdInterpret:
+		move.w #0, (A2, D2.w*2) ;add null termination to string
+
+		move.l #__CommandBuffer, A2
+		move.l A2, -(A7)
+		move.l #.textCommandTest, -(A7)
+		bsr StringCompare
+		addq.l #8, A7
+		cmpi.l #0, D0
+		beq .commandTest
+
+		move.l #__CommandBuffer, A2
+		move.l A2, -(A7)
+		move.l #.textCommandIntro, -(A7)
+		bsr StringCompare
+		addq.l #8, A7
+		cmpi.l #0, D0
+		beq .commandIntro
+
+		move.l #.textCommandnotfound, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		move.l #__CommandBuffer, A2
+		clr.l D2
+		bsr .cmdLoop
+
+	.commandTest:
+		move.l #.text1, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		move.l #__CommandBuffer, A2
+		clr.l D2
+		bsr .cmdLoop
+
+	.commandIntro:
+		move.l #.text0, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		move.l #__CommandBuffer, A2
+		clr.l D2
+		bsr .cmdLoop
+
 
 	.text0:
 	;ascii text font Doom (www.coolgenerator.com/ascii-text-generator)
 		dc.b "\n\n"
-                dc.b "\e[91m", "______ _____ _____ _____  _____  _____  _____\n"
-                dc.b "\e[92m", "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
-                dc.b "\e[93m", "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
-                dc.b "\e[94m", "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
-                dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
-                dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
-                dc.b "\e[0m\n\n"
-                dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
+		dc.b "\e[91m", "______ _____ _____ _____  _____  _____  _____\n"
+		dc.b "\e[92m", "| ___ \\_   _|  _  /  ___||  _  |/ __  \\|  _  |\n"
+		dc.b "\e[93m", "| |_/ / | | | | | \\ `--. | |/' |`' / /'| |/' |\n"
+		dc.b "\e[94m", "| ___ \\ | | | | | |`--. \\|  /| |  / /  |  /| |\n"
+		dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
+		dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
+		dc.b "\e[0m\n\n", $00
+	.text2:
+		dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
+	.text1:
+		dc.b "This is test. Hello world!\n", $00
+
+	.textCommandTest:
+		dc.b "test", $00
+	.textCommandIntro:
+		dc.b "intro", $00
+	.textCommandnotfound:
+		dc.b "Error: not a valid command!\n", $00
+
 	even
+
+
 
 getBootblockCount:
 		move.l #12345, D0
