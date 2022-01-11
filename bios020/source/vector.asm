@@ -81,7 +81,7 @@ dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 1
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 2
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 3
 dc.l IgnoreInterrupt            ;MFP Timer D
-dc.l IgnoreInterrupt            ;MFP Timer C
+dc.l TimerInterrupthandler      ;MFP Timer C
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 4
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 5
 dc.l IgnoreInterrupt            ;MFP Timer B
@@ -98,7 +98,7 @@ dcb.l 176, IgnoreInterrupt      ;User defined Interrupts
 ;Basic exception handling function
 FatalError:			;locks up cpu completely until reset
 		move.w IDE0_BASE, D0
-		bra.w FatalError
+		bra FatalError
 
 IgnoreInterrupt:		;just returns without doing anything
         rte

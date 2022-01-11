@@ -2,10 +2,10 @@
 SerialInit:
 		andi.b #$f0, MFP_TCDCR
 		ori.b #$01, MFP_TCDCR
-		;move.b #$30, MFP_TDDR ;TDO clock divider for 9600 baud serial
-		move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
+		move.b #$3, MFP_TDDR ;TDO clock divider for 9600 baud serial
+		;move.b #$04, MFP_TDDR ;TDO clock divider for 115200 baus
 
-		move.b #$08, MFP_UCR ;CLK / 1, 8bit char, no parity
+		move.b #$88, MFP_UCR ;CLK / 16, 8bit char, no parity
 		move.b #$04, MFP_TSR ;set h flag
 		move.b #$05, MFP_TSR ;enable transmitter
 
@@ -100,7 +100,7 @@ SerialWriteDec32: ;void (long number)
 		move.l (4, A7), D0
 		move.l D2, -(A7)
 		clr.l D2
-		move.l #__SerialHexTable, A0
+		clr.l D1
 
 	.divLoop:
 		cmpi.l #0, D0
@@ -108,16 +108,16 @@ SerialWriteDec32: ;void (long number)
 		divul.l #10, D1:D0
 		move.w D1, -(A7)
 		addq.w #1, D2
-		bra.w .divLoop
+		bra .divLoop
 
 	.display:
 		cmpi.w #0, D2
-		beq.w .return
+		beq .return
 		move.w (A7)+, D0
 		addi.b #'0', D0
 	.waitMfp:
 		btst.b #7, MFP_TSR
-                beq.w .waitMfp
+        beq.w .waitMfp
 		move.b D0, MFP_UDR
 		subq #1, D2
 		bra.w .display
@@ -145,7 +145,7 @@ SerialRXHandler: ;void ()
 		move.l #__SerialRingbuffer, A0
 		move.w __SerialRBWrite, D0
 		move.b MFP_UDR, D1
-		move.b D1, MFP_UDR
+		move.b D1, MFP_UDR ;echo back the char recived
 		andi.w #$00ff, D1
 		move.w D1, (0, A0, D0.w*2)
 		addq.w #1, D0
@@ -171,9 +171,12 @@ SerialRead: ;int ()
 		cmp.w #0, D0
 		beq .return ;no data in the buffer, return
 
-		move.w (__SerialRBRead), D0
+		move.w __SerialRBRead, D1
 		move.l __SerialRingbuffer, A0
-		move.w (0, A0, D0.w*2), D0
+		move.w (0, A0, D1.w*2), D0
+		addq.w #1, D1
+		andi.w #$00ff, D1
+		move.w D1	, __SerialRBRead
 
 	.return:
 		rts
