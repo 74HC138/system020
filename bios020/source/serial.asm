@@ -145,6 +145,7 @@ SerialRXHandler: ;void ()
 		move.l #__SerialRingbuffer, A0
 		move.w __SerialRBWrite, D0
 		move.b MFP_UDR, D1
+		move.b D1, MFP_UDR ;echo back the char recived
 		andi.w #$00ff, D1
 		move.w D1, (0, A0, D0.w*2)
 		addq.w #1, D0

@@ -8,9 +8,12 @@ org ROM_BASE
 .include "updater.asm"
 .include "compostfetch.asm"
 .include "string.asm"
+.include "timer.asm"
 
 Main:
 		bsr SerialInit
+		bsr TimerInit
+
 
 		bclr #2, MFP_DDR
 		btst #2, MFP_GPDR ;test if userinterrupt button is pressed
@@ -36,64 +39,18 @@ Main:
 		bsr SerialWriteDec32
 		addq.l #4, A7
 
-		move.l #__CommandBuffer, A2
-		clr.l D2
-
-	.cmdLoop:
-		bsr SerialAvailable
-		cmpi.b #0, D0
-		beq .cmdLoop
-		bsr SerialRead
-		move.w D0, -(A7)
-		bsr SerialWriteChar
-		move.w (A7)+, D0
-		cmp.w '\n', D0
-		beq .cmdInterpret
-		move.w D0, (A2, D2.w*2)
-		addq.w #1, D2
-		bra .cmdLoop
-
-	.cmdInterpret:
-		move.w #0, (A2, D2.w*2) ;add null termination to string
-
-		move.l #__CommandBuffer, A2
-		move.l A2, -(A7)
-		move.l #.textCommandTest, -(A7)
-		bsr StringCompare
-		addq.l #8, A7
-		cmpi.l #0, D0
-		beq .commandTest
-
-		move.l #__CommandBuffer, A2
-		move.l A2, -(A7)
-		move.l #.textCommandIntro, -(A7)
-		bsr StringCompare
-		addq.l #8, A7
-		cmpi.l #0, D0
-		beq .commandIntro
-
-		move.l #.textCommandnotfound, -(A7)
+	.timerLoop:
+		move.l #1000, -(A7)
+		bsr TimerSleepMs
+		addq.l #4, A7
+		move.l #.textTime, -(A7)
 		bsr SerialWrite
 		addq.l #4, A7
-		move.l #__CommandBuffer, A2
-		clr.l D2
-		bsr .cmdLoop
-
-	.commandTest:
-		move.l #.text1, -(A7)
-		bsr SerialWrite
+		move.l __TimerCount, -(A7)
+		bsr SerialWriteDec32
 		addq.l #4, A7
-		move.l #__CommandBuffer, A2
-		clr.l D2
-		bsr .cmdLoop
+		bra .timerLoop
 
-	.commandIntro:
-		move.l #.text0, -(A7)
-		bsr SerialWrite
-		addq.l #4, A7
-		move.l #__CommandBuffer, A2
-		clr.l D2
-		bsr .cmdLoop
 
 
 	.text0:
@@ -108,15 +65,9 @@ Main:
 		dc.b "\e[0m\n\n", $00
 	.text2:
 		dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
-	.text1:
-		dc.b "This is test. Hello world!\n", $00
-
-	.textCommandTest:
-		dc.b "test", $00
-	.textCommandIntro:
-		dc.b "intro", $00
-	.textCommandnotfound:
-		dc.b "Error: not a valid command!\n", $00
+	
+	.textTime:
+		dc.b "\nTimes Up! Count:", $00
 
 	even
 

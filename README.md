@@ -14,6 +14,36 @@ System020 contains a BIOS with bootloader and OS with preemtive multitasking, as
 
 More informations about the components can be found in their respective paths
 
+## Featurelist
+
+Features that planed/available:
+
+  * [ ] Complete BIOS:
+    * [x] Bootloader with serial update mechanism
+    * [ ] Filesystem driver
+    * [ ] Simple terminal
+    * [ ] Excecuting scripts
+    * [ ] Bin/Hex loader
+  * [ ] Complete comp!_OSt:
+    * [ ] Working multitasking
+    * [ ] Resource allocation
+    * [ ] Basic device drivers
+    * [ ] Privilege seperation
+  * [ ] Essential programs:
+    * [ ] mount
+    * [ ] cd
+    * [ ] ls
+    * [ ] rm
+    * [ ] mkdir
+    * [ ] cat
+    * [ ] sh
+    * [ ] zmodem
+    * [ ] ed
+  * [ ] Nice to have:
+    * [ ] Assembler
+    * [ ] C compiler (gcc?)
+    * [ ] nano/vim
+    
 ## Instalation
 
 For a basic system without extra programms:
@@ -26,7 +56,9 @@ For a basic system without extra programms:
 6. `make essentials`
 7. `make assemble`
 8. Take the rom in `build/ROM_bundle.bin`and write it to the EEPROM(s) of the megasystem020
+
    or
+
    `make upload` (Note: for this there has to be a bootloader allready on the system. To enter bootloader mode press the UserInt button while reseting)
 9. open/connect your favorite serial terminal and enjoy
 

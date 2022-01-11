@@ -81,7 +81,7 @@ dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 1
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 2
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 3
 dc.l IgnoreInterrupt            ;MFP Timer D
-dc.l IgnoreInterrupt            ;MFP Timer C
+dc.l TimerInterrupthandler      ;MFP Timer C
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 4
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 5
 dc.l IgnoreInterrupt            ;MFP Timer B
