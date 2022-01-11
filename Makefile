@@ -3,13 +3,9 @@ TOOLS = "$(CURDIR)/buildtools"
 
 all:
 	@echo "Build tools folder: $(TOOLS)"
+	cd bios020; make
+
 clean:
-	cd bios020
-	make clean
-	cd ../flasher020
-	make clean
-	cd ../minimux
-	make clean
-	cd ..
+	cd bios020; make clean
 	@if [-d "build"]; then rm build -r; fi
 	echo "all clean"
