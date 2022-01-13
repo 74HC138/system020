@@ -13,25 +13,26 @@ A single block is 256 bytes (depends on the pagesize of the ROM (on the megasyst
 enum PART_TYPE {
     PART_TYPE_NONE = 0,
     PART_TYPE_FS = 1,
-    PART_TYPE_CODE = 2
-    PART_TYPE_MAX = 0xffff;
+    PART_TYPE_CODE = 2,
+    PART_TYPE_RAW = 3,
+    PART_TYPE_MAX = 0xffff
 };
 enum PART_FLAGS {
     PART_FLAGS_IGNORE = 0x01,
     PART_FLAGS_EXCEC = 0x02,
     PART_FLAGS_MOUNTABLE = 0x04,
-    PART_FLAGS_AUTOMOUNT = 0x08
-    PART_FLAGS_MAX = 0xffff;
+    PART_FLAGS_AUTOMOUNT = 0x08,
+    PART_FLAGS_MAX = 0xffff
 };
 struct BLOCK_HEADER {
     BLOCK_HEADER* nextBlock;
     uint16_t type;
     uint16_t flags;
     uint32_t size;
-    unsigned char name[0xff - (sizeof(BLOCK_HEADER*) + (2 * sizeof(uint16_t)) + sizeof(uint32_t))];
+    unsigned char name[0xff - (sizeof(BLOCK_HEADER*) + (2 * sizeof(uint16_t)) + sizeof(uint32_t))]
 };
 ```
-The `nextBlock` field in the `BLOCK_HEADER` points to the next block alligned to the block size (the pointer gets forcefully alligned). If this is the last partition then this field must be `NULL`.
+The `nextBlock` field in the `BLOCK_HEADER` is the offset to the next block alligned to the block size (the pointer gets forcefully alligned). If this is the last partition then this field must be `NULL`.
 
 The size of the `type` and `flags` fields in `BLOCK_HEADER` struct are fixed 16 bit wide but because the size of an enum cant be enforced they are defined as `uint16_t` and need a type cast to be set with the enumerations.
 
