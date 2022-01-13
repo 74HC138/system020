@@ -1,1 +1,4 @@
-codeSnippets
+build/
+**/*.tar.gz
+buildtools/vbcc/
+codeSnippets/
