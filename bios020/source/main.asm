@@ -9,48 +9,54 @@ org ROM_BASE
 .include "compostfetch.asm"
 .include "string.asm"
 .include "timer.asm"
+.include "keyboard.asm"
+.include "vdp.asm"
 
 Main:
-		bsr SerialInit
-		bsr TimerInit
+		move.l #USP_STACK, A0
+		movec.l A0, USP
+		move.l #ISP_STACK, A0
+		movec.l A0, ISP
+		move.l #MSP_STACK, A0
+		movec.l A0, MSP
+		ori.w #$1000, SR
 
+		move.w #1, __TraceDumpRegs
+
+		bsr SerialInit
 
 		bclr #2, MFP_DDR
 		btst #2, MFP_GPDR ;test if userinterrupt button is pressed
 		beq UpdaterInit ;if pressed jump to updater
 
-		move.l #CompostFetch, -(A7)
-		bsr SerialWrite
+		illegal ;cause breakpoint
+
+		move.l #SerialWriteChar, -(A7)
+		bsr KbInit
 		addq.l #4, A7
+
+		bsr VDPInit
+
+		bsr TimerInit
+		andi.w #$f8ff, SR
 
 		move.l #.text0, -(A7)
 		bsr SerialWrite
 		addq.l #4, A7
 
-		move.l #.text2, -(A7)
-		bsr SerialWrite
-		addq.l #4, A7
-
-		andi.w #$f8ff, SR
-
-		bsr getBootblockCount
-		move.l D0, D2 ;move bootblock count to trash proof register
-		move.l D0, -(A7)
-		bsr SerialWriteDec32
-		addq.l #4, A7
-
-	.timerLoop:
-		move.l #1000, -(A7)
+	.kb_loop:
+		;bsr KbRead
+		move.b LED_BASE, D0
+		move.l #900, -(A7)
 		bsr TimerSleepMs
 		addq.l #4, A7
-		move.l #.textTime, -(A7)
-		bsr SerialWrite
-		addq.l #4, A7
-		move.l __TimerCount, -(A7)
-		bsr SerialWriteDec32
-		addq.l #4, A7
-		bra .timerLoop
 
+		move.b D0, LED_BASE
+		move.l #100, -(A7)
+		bsr TimerSleepMs
+		addq.l #4, A7
+
+		bra .kb_loop
 
 
 	.text0:
@@ -63,8 +69,17 @@ Main:
 		dc.b "\e[95m", "| |_/ /_| |_\\ \\_/ /\\__/ /\\ |_/ /./ /___\\ |_/ /\n"
 		dc.b "\e[96m", "\\____/ \\___/ \\___/\\____/  \\___/ \\_____/ \\___/"
 		dc.b "\e[0m\n\n", $00
+
+	.text1:
+		dc.b "This is a printf test\n"
+		dc.b "This is an integer: %d\n"
+		dc.b "This is an unsigned integer: %u\n"
+		dc.b "This is a long: %ld\n"
+		dc.b "This is an unsigned long: %lu\n"
+		dc.b "This is a long hex: %lx\n"
+		dc.b "And this is a seperate string: %s\n", $00
 	.text2:
-		dc.b "\e[1m", "Bootblocks found:", "\e[0m", $00
+		dc.b "Im in a seperate string woohoo!", $00
 	
 	.textTime:
 		dc.b "\nTimes Up! Count:", $00

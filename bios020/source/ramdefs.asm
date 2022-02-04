@@ -4,6 +4,12 @@ __TimerCount:
 		ds.l 1
 __TimerDiv3:
 		ds.w 1
+__TraceDumpRegs:
+		ds.w 1
+__KbLast:
+		ds.w 4
+__KbCallback:
+		ds.l 1
 
 __SerialRingbuffer: ;clean ringbuffer
 		ds.w 256

@@ -2,3 +2,4 @@ build/
 **/*.tar.gz
 buildtools/vbcc/
 codeSnippets/
+buildtools/fsbuilder/hdmaker

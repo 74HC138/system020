@@ -18,3 +18,4 @@ bios:
 tools:
 	cd $(TOOLS); make
 
+#$(V).SILENT:

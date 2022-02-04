@@ -20,10 +20,10 @@ payload: prepare
 	@echo Building payload DONE
 
 prepare:
-	if ! test -d "build"; then mkdir build; fi
+	if ! test -d build; then mkdir build; fi
 
 debug: clean
-	mkdir build
+	@mkdir build
 	$(ASSEMBLER) source/debug.asm -o build/debug.bin -L build/debug_listing.lst $(FLAGS)
 	$(BUILDTOOLS)/romsplit/romsplit --input build/debug.bin --output build/dbromhigh.bin build/dbromlow.bin --bigEndian
 
@@ -32,6 +32,6 @@ fs:
 	$(BUILDTOOLS)/fsbuilder/buildfs.sh $(FSSIZE) romfs/romfs.bin romfs/fsdata
 
 clean:
-	if test -d "build"; then rm build/ -rf; fi
+	@if test -d "build"; then rm build/ -rf; fi
 
 #$(V).SILENT:

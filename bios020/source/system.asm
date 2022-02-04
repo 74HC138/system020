@@ -14,7 +14,16 @@ MFP_BASE        = $40000000
 IDE0_BASE	= $20000000
 IDE1_BASE	= $30000000
 
-STACK_INIT	= RAM_TOP
+MMBOARD_BASE = $80000000
+VDP_BASE = MMBOARD_BASE
+KB_BASE = MMBOARD_BASE + $0100
+YM_BASE = MMBOARD_BASE + $0200
+LED_BASE = MMBOARD_BASE + $0300
+
+STACK_SIZE  = $00010000
+MSP_STACK   = RAM_TOP
+USP_STACK   = RAM_TOP - STACK_SIZE
+ISP_STACK   = USP_STACK - STACK_SIZE
 ;-----------------------------------------------------------------------------
 ;MFP registers
 MFP_GPDR        = MFP_BASE + $00
@@ -61,3 +70,8 @@ IDE_DRVA	= IDE1_BASE + $0E ;read only
 IDE_LBAL	= IDE0_BASE + $06
 IDE_LBAM	= IDE0_BASE + $08
 IDE_LBAH	= IDE0_BASE + $0A
+;-----------------------------------------------------------------------------
+;VDP registers
+VDP_VRAM    = VDP_BASE + $00
+VDP_STATUS  = VDP_BASE + $01 ;read only
+VDP_REG     = VDP_BASE + $01 ;write only

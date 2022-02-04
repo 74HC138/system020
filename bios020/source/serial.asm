@@ -17,6 +17,140 @@ SerialInit:
 
 		rts
 
+;writes formated string to serial
+SerialPrintf:
+		illegal
+		move.l A7, A0
+		move.l (A0)+, A1
+		move.l (A0)+, A1
+
+		;move A1, -(A7)
+		;bsr SerialWriteHex32
+		;add.l #4, A7
+		;rts
+
+	.loop:
+		move.b (A1)+, D0
+
+		cmpi.b #0, D0
+		beq .exit
+		cmpi.b #'%', D0
+		beq .format
+		move.w D0, -(A7)
+		bsr SerialWriteChar
+		addq.l #2, A7
+		bra .loop
+
+	.exit:
+		illegal
+		rts
+
+	.format:
+		move.b (A1)+, D0
+		cmpi.b #'%', D0
+		beq .percent
+		cmpi.b #'c', D0
+		beq .char
+		cmpi.b #'d', D0
+		beq .integerSigned
+		cmpi.b #'i', D0
+		beq .integerSigned
+		cmpi.b #'u', D0
+		beq .integerUnsigned
+		cmpi.b #'x', D0
+		beq .intHex
+		cmpi.b #'s', D0
+		beq .string
+
+		cmpi.b #'l', D0
+		bne .loop
+
+		move.b (A1)+, D0
+		cmpi.b #'d', D0
+		beq .longSigned
+		cmpi.b #'u', D0
+		beq .longUnsigned
+		cmpi.b #'x', D0
+		beq .longHex
+		bra .longSigned
+
+	.percent:
+		move.w #'%', -(A7)
+		bsr SerialWriteChar
+		addq.l #2, A7
+		bra .loop
+
+	.char:
+		move.w (A0)+, -(A7)
+		bsr SerialWriteChar
+		add.l #2, A7
+		bra .loop
+	
+	.integerSigned:
+		move.w (A0)+, D0
+		btst #15, D0
+		beq .integer_skip ;highest bit is 0 -> number is positive
+		neg.w D0
+		move.w #'-', -(A7)
+		bsr SerialWriteChar
+		addq.l #2, A7
+	.integer_skip:
+		move.w D0, -(A7)
+		bsr SerialWriteDec16
+		addq.l #2, A7
+		bra .loop
+	
+	.integerUnsigned:
+		move.w (A0)+, D0
+		move.w D0, -(A7)
+		bsr SerialWriteDec16
+		addq.l #2, A7
+		bra .loop
+	
+	.intHex:
+		move.w (A0)+, -(A7)
+		bsr SerialWriteHex16
+		addq.l #2, A7
+		bra .loop
+	
+	.string:
+		move.l (A0)+, -(A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		bra .loop
+
+	.longSigned:
+		move.l (A0)+, D0
+		btst #31, D0
+		beq .long_skip
+		neg.l D0
+		move.w #'-', -(A7)
+		bsr SerialWriteChar
+		addq.l #2, A7
+	.long_skip:
+		move.l D0, -(A7)
+		bsr SerialWriteDec32
+		addq.l #4, A7
+		bra .loop
+
+	.longUnsigned:
+		move.l (A0)+, -(A7)
+		bsr SerialWriteDec32
+		addq.l #4, A7
+		bra .loop
+
+	.longHex:
+		move.l (A0)+, -(A7)
+		bsr SerialWriteHex32
+		addq.l #4, A7
+		bra .loop
+
+
+SerialFlush:
+		btst.b #7, MFP_TSR
+		beq.w SerialFlush
+		rts
+
 ;writes string to serial
 SerialWrite: ;void (char* string)
 		move.l (4, A7), A0
@@ -83,12 +217,12 @@ SerialWriteHex16: ;void (int number)
 
 ;writes 32 bit int to serial as hexadecimal
 SerialWriteHex32: ;void (long number)
-		move.w (6, A7), D0
+		move.w (4, A7), D0
 		move.w D0, -(A7)
 		bsr.w SerialWriteHex16
 		addq.l #2, A7
 
-		move.w (4, A7), D0
+		move.w (6, A7), D0
 		move.w D0, -(A7)
 		bsr.w SerialWriteHex16
 		addq.l #2, A7
