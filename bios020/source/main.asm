@@ -108,4 +108,4 @@ FIRST_BOOTBLOCK:
 print "FIRST_BOOTBLOCK: ", /d/l FIRST_BOOTBLOCK
 print "Filled bytes: ", /d FIRST_BOOTBLOCK - BIOS_END
 
-.include "ramdefs.asm"
+.include "ramdefs.asm" 

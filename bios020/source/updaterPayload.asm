@@ -1,50 +1,38 @@
 .include "system.asm"
 
-UpdaterMain:
-		bsr UpdaterSerialInit
+UPDATER_BEGIN:
 
-        move.l #.text, A0
-        move.l A0, -(A7)
-        bsr UpdaterSerialWrite
-        addq #4, A7
-    .commandLoop:
-        clr.l D0
-        bsr.w UpdaterSerialRead
-        move.w D0, -(A7)
-        bsr.w UpdaterSerialWriteChar
-        move.w (A7)+, D0
+main:
+		bsr SerialInit
+    .cmdLoop:
+        bsr SerialRead
+        cmpi.b 'i', D0
+        beq SendInfo
+        cmpi.b 'v', D0
+        beq SendVersion
 
-        cmpi.b #'v', D0
-        beq.w .commandVersion ;displays version information
-        cmpi.b #'b', D0
-        beq.w .commandBoot ;resets the computer and boots normaly
-        cmpi.b #'p', D0
-        beq.w .commandPut ;loads 256 bytes over serial into data buffer
-        cmpi.b #'g', D0
-        beq.w .commandGet ;sends 256 bytes over serial from data buffer
-        cmpi.b #'w', D0
-        beq.w .commandWrite ;get base address over serial and tries to write the data buffer to that address
-        cmpi.b #'r', D0
-        beq.w .commandRead ;get base address over serial and load data to data buffer
-        cmpi.b #'t', D0
-        beq.w .commandTest ;test if device is alive
-        bra.w .commandLoop ;ignore byte
-    
-    .commandTest:
-            move.w #'k', -(A7)
-            bsr.w UpdaterSerialWriteChar ;sends ok back
-            addq.l #2, A7
-            bra.w .commandLoop
 
-    .commandRead:
-            bsr SerialReadHex32
-            move.l D0, A0
-            move.l #UpdaterDataBuffer, A1
-            move.l #128, D1
-        .commandReadLoop:
-            move.w (A0)+, (A1)+
-            dbra D1, .commandReadLoop
-            bra.w .commandTest ;terminate command and return to command receive loop       
+        move.l #.textCNF, -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+        bra .cmdLoop
+
+    .textCNF:
+        dc.b "ERROR: Command not found\n", $00
+
+
+SendInfo:
+
+    .textInfo:
+        dc.b "{\n"
+        dc.b "\"ramsize\": ", /u RAM_SIZE, ",\n"
+        dc.b "\"ramfree\": ", /u (RAM_SIZE - (UPDATER_END - UPDATER_BEGIN)), ",\n"
+        dc.b "\"rombase\": ", /u ROM_BASE, ",\n"
+        dc.b "\"romsize\": ", /u ROM_SIZE, ",\n"
+        dc.b "\"version\": \"2.00A\"\n"
+        dc.b "}", $00
+
+
 
     .commandWrite:
             bsr SerialReadHex32
@@ -87,67 +75,12 @@ UpdaterMain:
             ;the data is written and writing is done
             bra.w .commandTest ;terminate command and return to command receive loop
 
-    .commandGet:
-            move.l #UpdaterDataBuffer, A3
-            move.w #127, D3
-        .commandGetLoop:
-            move.w (A3)+, -(A7)
-			bsr.w SerialWriteHex16
-			addq.l #2, A7
-            dbra D3, .commandGetLoop
 
-            bra.w .commandLoop
-    .commandPut:
-            move.l #UpdaterDataBuffer, A3
-            move.w #127, D3
-        .commandPutLoop:
-			bsr SerialReadHex16
-            move.w D0, (A3)+
-			move.w #'.', -(A7)
-			bsr UpdaterSerialWriteChar
-			addq.l #2, A7
-            dbra D3, .commandPutLoop
 
-            bra.w .commandTest
-    .commandBoot:
-			move.l #ROM_BASE, D0
-			movec.l D0, VBR ;reset to initial VBR location
-            move.l ROM_BASE, A7 ;vector for SP init
-            ;reset external devices
-            reset
-            ;clear all registers for good measure
-            clr.l D0
-            clr.l D1
-            clr.l D2
-            clr.l D3
-            clr.l D4
-            clr.l D5
-            clr.l D6
-            clr.l D7
-            suba.l A0, A0
-            suba.l A1, A1
-            suba.l A2, A2
-            suba.l A3, A3
-            suba.l A4, A4
-            suba.l A5, A5
-            suba.l A6, A6
-            ;jump to reset routine
-            jmp (ROM_BASE + 4).l ;vector for PC init
-    .commandVersion:
-            move.l #.versionString, A0
-            move.l A0, -(A7)
-            bsr UpdaterSerialWrite
-            addq #4, A7
-
-            bra.w .commandTest
-
-    .text:
-            dc.b "BIOS020 Updater V0.01", $00
-    .versionString:
-            dc.b "[V0.01]", $00
-    even
-
-UpdaterSerialInit:
+;----------------------------------------------------------
+;Serial Functions
+;----------------------------------------------------------
+SerialInit:
         andi.b #$f0, MFP_TCDCR
         ori.b #$01, MFP_TCDCR
         move.b #$3, MFP_TDDR ;TDO clock divider for 9600 baud serial
@@ -159,7 +92,7 @@ UpdaterSerialInit:
         move.b #$01, MFP_RSR ;enable receiver
 
         rts
-UpdaterSerialWrite:
+SerialWrite:
         move.l (4, A7), A0
     .loop:
         btst.b #7, MFP_TSR
@@ -171,16 +104,16 @@ UpdaterSerialWrite:
         bra.w .loop
     .return:
         rts
-UpdaterSerialWriteChar:
+SerialWriteChar:
         btst.b #7, MFP_TSR
-        beq.w UpdaterSerialWriteChar
+        beq.w SerialWriteChar
 
         move.w (4, A7), D0
         move.b D0, MFP_UDR
         rts
-UpdaterSerialRead:
+SerialRead:
         btst.b #7, MFP_RSR ;wait until a char is received
-        beq.w UpdaterSerialRead
+        beq.w SerialRead
 
         move.b MFP_UDR, D0
         rts
@@ -220,13 +153,28 @@ SerialWriteHex16: ;void (int number)
 		addq.l #2, A7
 
 		rts
+SerialWriteHex32: ;void (long number)
+        move.l D2, -(A7)
+
+        move.l ($08, A7), D2
+        swap D2
+        move.w D2, -(A7)
+        bsr SerialWriteHex16
+        addq.l #2, A7
+        swap D2
+        move.w D2, -(A7)
+        bsr SerialWriteHex16
+        addq.l #2, A7
+
+        move.l (A7)+, D2
+        rts
 SerialReadHex16:
 		move.l D2, -(A7)
 		clr.l D1
 		move.w #3, D2
 	.loop:
 		lsl.w #4, D1
-		bsr UpdaterSerialRead
+		bsr SerialRead
 		subi.b #48, D0
 		cmpi.b #10, D0
 		blo .skip
@@ -238,9 +186,6 @@ SerialReadHex16:
 
 		move.l (A7)+, D2
 		move.w D1, D0
-		move.w D0, -(A7)
-		bsr SerialWriteHex16
-		move.w (A7)+, D0
 		rts
 SerialReadHex32:
 		move.l D3, -(A7)
@@ -253,18 +198,78 @@ SerialReadHex32:
 		or.l D3, D0
 		move.l (A7)+, D3
 		rts
-SerialXON:
-		move.w #$11, -(A7)
-		bsr UpdaterSerialWriteChar
-		addq.l #2, A7
-		rts
-SerialXOFF:
-		move.w #$11, -(A7)
-		bsr UpdaterSerialWriteChar
-		addq.l #2, A7
-		rts
 
+SerialSendJSONString:
+        ;sends a string json entry
+        ;paramters:
+        ;  String object_name (pointer)
+        ;  String object_value (pointer)
+        ;returns:
+        ;  null
+        move.w #'\"', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
 
+        move.l ($08, A7), -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        move.l #.seperator, -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        move.l ($04, A7), -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        move.w #'\"', -(A7)
+        bsr SerialWriteChar
+        move.w #',', -(A7)
+        bsr SerialWriteChar
+        addq.l #4, A7
+
+        rts
+    .seperator:
+        dc.b "\": \"", $00
+SerialSendJSONHex:
+        ;sends a hexadecial string json entry
+        ;paramters:
+        ;  String object_name (pointer)
+        ;  Long object_value
+        ;returns:
+        ;  null
+        move.w #'\"', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
+
+        move.l ($08, A7), -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        move.l #.seperator, -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        move.l ($04, A7), -(A7)
+        bsr SerialWriteHex32
+        addq.l #4, A7
+
+        move.w #'\"', -(A7)
+        bsr SerialWriteChar
+        move.w #',', -(A7)
+        bsr SerialWriteChar
+        addq.l #4, A7
+
+        rts
+    .seperator:
+        dc.b "\": \"", $00
+;----------------------------------------------------------
+;Global variables
+;----------------------------------------------------------
+UpdaterVersion:
+        dc.b "2.00A", $00
+;----------------------------------------------------------
+
+UPDATER_END:
 
 UpdaterDataBuffer:
-        dcb.w 128
