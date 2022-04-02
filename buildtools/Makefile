@@ -1,14 +1,7 @@
 VASM_URL = http://www.ibaug.de/vbcc/vbcc_linux_x64.tar.gz
 
-all:
-	@echo "making fsbuilder"
-	@cd fsbuilder; make
-	@echo "making romsplit"
-	@cd romsplit; make
-	@echo "making upload"
-	@cd upload; make
-	@if ! test -f vbcc*.tar.gz; then echo "downloading vasm"; wget $(VASM_URL); fi
-	@if ! test -d vbcc; then echo "uncompressing vasm"; tar -xzf vbcc*.tar.gz; fi
+all: fsbuilder romsplit upload vasm
+	@echo "buildtools fully build"
 
 clean:
 	@echo "cleaning tools"
@@ -21,7 +14,7 @@ fsbuilder:
 	@echo "making fsbuilder"
 	@cd fsbuilder; make
 
-romsplit:
+romsplit: git
 	@echo "making romsplit"
 	@cd romsplit; make
 
@@ -33,5 +26,8 @@ vasm:
 	@echo "making vasm"
 	@if ! test -f vbcc*.tar.gz; then echo "donwloading vasm"; wget $(VASM_URL); fi
 	@if ! test -d vbcc; then echo "uncompressing vasm"; tar -xzf vbcc*.tar.gz; fi
+
+git:
+	@if ! test -d romsplit; then git clone https://github.com/74HC138/romsplit.git; fi
 
 #$(V).SILENT:

@@ -3,79 +3,318 @@
 UPDATER_BEGIN:
 
 main:
+        ;set stack pointer to allocated stack space
+        move.l #StackTop, A7
+        ;initialice the serial interface and the poly table
 		bsr SerialInit
+        bsr CRC32MakeLookup
+
     .cmdLoop:
+        ;move return address to stack
+        move.l (.cmdLoop, PC), -(A7)
+
         bsr SerialRead
-        cmpi.b 'i', D0
+        cmpi.b #'i', D0
         beq SendInfo
-        cmpi.b 'v', D0
+        cmpi.b #'v', D0
         beq SendVersion
+        cmpi.b #'d', D0
+        beq ReceiveData
+        cmpi.b #'b', D0
+        beq ReceiveBufferoffset
+        cmpi.b #'c', D0
+        beq SendChecksum
+        cmpi.b #'w', D0
+        beq WriteToFlash
+        cmpi.b #'s', D0
+        beq SendStatus
+        cmpi.b #'a', D0
+        beq ReceiveAddress
 
-
-        move.l #.textCNF, -(A7)
+        move.l (.textCNF, PC), -(A7)
         bsr SerialWrite
         addq.l #4, A7
-        bra .cmdLoop
+        rts
 
     .textCNF:
-        dc.b "ERROR: Command not found\n", $00
+        dc.b $18, "ERROR: Command not found\n", $06,  $00
+        ;0x18 -> cancel ascii control character
+        ;0x06 -> acknowlage ascii control character
 
 
 SendInfo:
+    ;desciption: send a json formated string containing system information to the host
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
 
-    .textInfo:
-        dc.b "{\n"
-        dc.b "\"ramsize\": ", /u RAM_SIZE, ",\n"
-        dc.b "\"ramfree\": ", /u (RAM_SIZE - (UPDATER_END - UPDATER_BEGIN)), ",\n"
-        dc.b "\"rombase\": ", /u ROM_BASE, ",\n"
-        dc.b "\"romsize\": ", /u ROM_SIZE, ",\n"
-        dc.b "\"version\": \"2.00A\"\n"
-        dc.b "}", $00
+        move.w #'{', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
 
+        lea.l (.textField0, PC), A0
+        move.l A0, -(A7)
+        move.l #RAM_SIZE, -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
 
+        lea.l (.textField1, PC), A0
+        move.l A0, -(A7)
+        move.l #(RAM_SIZE - (UPDATER_END - UPDATER_BEGIN)), -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
 
-    .commandWrite:
-            bsr SerialReadHex32
-			move.l D0, D2
-			move.l D2, D0
-			andi.l #$ffffff00, D0
-            move.l D0, A0
-			andi.l #$ff000000, D0
-			move.l D0, A1
-            move.l #UpdaterDataBuffer, A2
-            move.w #127, D0
+        lea.l (.textField2, PC), A0
+        move.l A0, -(A7)
+        move.l #ROM_BASE, -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
 
-            ;there be ghosts beyond here
-            ;brief: set eeprom into programm mode and set the right page address, load data into internal buffer, wait until done
-            ;enter programm mode
-            move.w #$AAAA, ($AAAA, A1)
-            move.w #$5555, ($5554, A1)
-            move.w #$A0A0, ($AAAA, A1)
-            ;fill up internal buffer
-        .commandWriteLoop:
-            move.w (A2)+, (A0)+
-            dbra D0, .commandWriteLoop
-			
-            ;wait until programming is done
-            move.w -(A2), D0
-            andi.w #$8080, D0
+        lea.l (.textField3, PC), A0
+        move.l A0, -(A7)
+        move.l #ROM_SIZE, -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
+
+        lea.l (.textField4, PC), A0
+        move.l A0, -(A7)
+        move.l (UpdaterVersion, PC), -(A7)
+        bsr SerialSendJSONString
+        addq.l #8, A7
+
+        move.w #'}', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
+
+        bsr SerialSendACK
+
+        rts
+    .textField0:
+        dc.b "ramsize", $00
+    .textField1:
+        dc.b "ramfree", $00
+    .textField2:
+        dc.b "rombase", $00
+    .textField3:
+        dc.b "romsize", $00
+    .textField4:
+        dc.b "version", $00
+        even
+SendVersion:
+    ;description: send the plain text version number of the updater
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
+        
+        move.l (UpdaterVersion, PC), -(A7)
+        bsr SerialWrite
+        addq.l #4, A7
+
+        bsr SerialSendACK
+
+        rts
+ReceiveData:
+    ;description: receives a 1024 byte chunk of plain data and writes it to the buffer according to the current buffer position and advances the buffer position
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        move.l D2, -(A7)
+        move.l D3, -(A7)
+        move.l D4, -(A7)
+        move.l D5, -(A7)
+
+        move.l #DataBuffer, A0
+        move.l BufferOffset, D2
+        move.l BufferLength, D3
+        move.w #1024, D5
+
+        ;send acknowlage that the command has been received
+        bsr SerialSendACK
+
+        .loop:
+            ;read two bytes into a single word
+            bsr SerialRead
+            clr.l D4
+            move.b D0, D4
+            lsl #8, D4
+            bsr SerialRead
+            move.b D0, D4
+
+            ;write that word into the buffer
+            move.w D4, (A0, D2)
+            ;advance the buffer offset by 2 bytes
+            addq.l #2, D2
+            ;when the length of the buffer is smaller then the offset
+            ;set the length to the current offset (buffer grows as more data is transmitted)
+            cmp.l D2, D3
+            bhs .skipMove
+                move.l D2, D3
+            .skipMove:
+            
+            ;decrement the number of bytes to receive
+            ;and loop as long as it is over 0
+            subq.l #2, D5
+            bne .loop
+
+        ;send acknowlage that the command has finished executing
+        bsr SerialSendACK
+
+        ;store the modified offset and length
+        lea.l (BufferOffset, PC), A1
+        move.l D2, (A1)+
+        move.l D3, (A1)
+
+        ;restore registers
+        move.l (A7)+, D5
+        move.l (A7)+, D4
+        move.l (A7)+, D3
+        move.l (A7)+, D2
+
+        rts
+ReceiveBufferoffset:
+    ;description: receives an eight letter hex string and sets the buffer offset acordingly
+    ;note: the least significant bit is ignored and allways 0
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
+
+        ;receive the hex string
+        bsr SerialReadHex32
+        ;ignore the LSB
+        andi.l #$fffffffe, D0
+        ;if the received number is 0 then also set the buffer length to zero
+        ;this resets the buffer
+        bne .skip
+            lea.l (BufferLength, PC), A0
+            move.l #$00, (A0)
+        .skip:
+        ;set the buffer offset to the received value
+        lea.l (BufferLength, PC), A0
+        move.l D0, (A0)
+
+        bsr SerialSendACK
+        rts
+SendChecksum:
+    ;description: Sends the CRC32 checksum of the data being held in the buffer
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
+
+        move.l (DataBuffer, PC), -(A7)
+        move.l (BufferLength, PC), -(A7)
+        bsr CRC32Calc
+        addq.l #8, A7
+        move.l D0, -(A7)
+        bsr SerialWriteHex32
+        addq.l #4, A7
+
+        bsr SerialSendACK
+        rts
+WriteToFlash:
+    ;description: Writes the value of 
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
+
+        move.l WriteAddress, A0
+        move.l DataBuffer, A1
+        move.l BufferLength, D0
+
+        .loop0:
+            ;word count to write per page
+            move.w #127, D1
+            ;this sets the Flash into programming mode
+            move.w #$AAAA, $AAAA + ROM_BASE
+            move.w #$5555, $5554 + ROM_BASE
+            move.w #$A0A0, $AAAA + ROM_BASE
+
+            ;copy 256 bytes to the flash or until the end of the buffer is reached
+            .loop1:
+                move.w (A1)+, (A0)+
+                subq.l #2, D0
+                beq .exitLoop1
+                subq.w #1, D1
+                bne .loop1
+            .exitLoop1:
+            ;load the last data word in the buffer
+            move.w -(A1), D1
+            andi.w #$8080, D1
+            move.w D1, -(A7)
             subq.l #2, A0
-        .commandWriteWait: ;test for inverted data bit 7. If inverted then the write operation is not finished
-            move.w (A0), D1
-            andi.w #$8080, D1
-            eor.w D0, D1
-            cmpi.w #$0000, D1
-            bne.w .commandWriteWait
-            ;repeat test twice
-            move.w (A0), D1
-            andi.w #$8080, D1
-            eor.w D0, D1
-            cmpi.w #$0000, D1
-            bne.w .commandWriteWait
-            ;the data is written and writing is done
-            bra.w .commandTest ;terminate command and return to command receive loop
+            .loop2:
+                ;compare the written value to the actual value
+                ;when the Flash is still programming then bit 7 and/or 15 is flipped
+                move.w (A0), ($02, A7)
+                andi.w #$8080, ($02, A7)
+                eor.w D1, ($02, A7)
+                bne .loop2
+                ;do test twice to mitigate transient glitches
+                ;this is based on the manufactures specifications
+                move.w (A0), ($02, A7)
+                andi.w #$8080, ($02, A7)
+                eor.w D1, ($02, A7)
+                bne .loop2
+            addq.l #2, A7
+            ;test if the reason for the termination of the copy loop was that the buffer is fully written
+            cmpi.l #$00, D0
+            ;if not then continue the loop 
+            bne .loop0
+        
+        bsr SerialSendACK
+        rts
+SendStatus:
+    ;description: Sends the buffer offset and length 
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+        bsr SerialSendACK
 
+        move.w #'{', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
 
+        move.l (.textField0, PC), -(A7)
+        move.l (BufferLength, PC), -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
+
+        lea.l (.textField1, PC), A0
+        move.l A0, -(A7)
+        move.l (BufferOffset, PC), -(A7)
+        bsr SerialSendJSONHex
+        addq.l #8, A7
+
+        move.w #'}', -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
+
+        bsr SerialSendACK
+        rts
+
+    .textField0:
+        dc.b "bufferLength", $00
+    .textField1:
+        dc.b "bufferOffset", $00
+        even
+
+ReceiveAddress:
+    ;description: Receives the base Flash address to write to 
+    ;parameters: none
+    ;returns: null
+    ;preserves registers
+    bsr SerialSendACK
+
+    bsr SerialReadHex32
+    lea.l (WriteAddress, PC), A0
+    move.l D0, (A0)
+
+    bsr SerialSendACK
+    rts
 
 ;----------------------------------------------------------
 ;Serial Functions
@@ -214,7 +453,8 @@ SerialSendJSONString:
         bsr SerialWrite
         addq.l #4, A7
 
-        move.l #.seperator, -(A7)
+        lea.l (.seperator, PC), A0
+        move.l A0, -(A7)
         bsr SerialWrite
         addq.l #4, A7
 
@@ -231,6 +471,7 @@ SerialSendJSONString:
         rts
     .seperator:
         dc.b "\": \"", $00
+        even
 SerialSendJSONHex:
         ;sends a hexadecial string json entry
         ;paramters:
@@ -246,7 +487,8 @@ SerialSendJSONHex:
         bsr SerialWrite
         addq.l #4, A7
 
-        move.l #.seperator, -(A7)
+        lea.l (.seperator, PC), A0
+        move.l A0, -(A7)
         bsr SerialWrite
         addq.l #4, A7
 
@@ -263,13 +505,121 @@ SerialSendJSONHex:
         rts
     .seperator:
         dc.b "\": \"", $00
+        even
+
+SerialSendACK:
+    ;description: sends the acknowlage control character (0x06)
+    ;paramters: none
+    ;returns: null
+        move.w #$06, -(A7)
+        bsr SerialWriteChar
+        addq.l #2, A7
+        rts
 ;----------------------------------------------------------
-;Global variables
+;CRC32 Functions
+;----------------------------------------------------------
+CRC32MakeLookup:
+    ;description: fills the polynominal loopup table
+    ;paramters: none
+    ;returns: none
+    ;preserves registers
+        move.l D2, -(A7)
+        
+        move.l #$00, D0 ;table index
+        move.l #PolyLookup, A0 ;base pointer
+        ;loop over every table entry
+        .loop0:
+            ;set initial value of entry to its own index
+            move.l D0, (A0, D0.l*4)
+            ;iterate over entry
+            move.b #$08, D1
+            .loop1:
+                move.l (A0, D0.l*4), D2
+                ;shift entry right by one
+                lsr.w ($00, A0, D0.l*4)
+                roxr.w ($02, A0, D0.l*4)
+                ;if the lowest bit (before the shift) is set then xor the entry with the magic value
+                ;if not skip it
+                andi.l #$01, D2
+                beq .skip
+                    eori.l #$EDB88320, (A0, D0.l*4)
+                .skip:
+                subq.l #1, D1
+                bne .loop1
+            ;increment index and test if we looped over all table entrys
+            addq.l #1, D0
+            cmpi.l #$0100, D0
+            bne .loop0
+        ;poly table is finished
+        ;restore used registers and return
+        move.l (A7)+, D2
+        rts
+CRC32Calc:
+    ;description: calculates the CRC32 value of a given number of bytes
+    ;parameters: char* base, long length
+    ;   base: pointer to base of byte array
+    ;   length: length of array
+    ;returns: long CRC32 Checksum in D0
+    ;preserves registers
+        move.l ($04, A7), D0 ;length
+        move.l ($08, A7), A0 ;base
+        move.l #PolyLookup, A1 ;lookup table
+        move.l #$ffffffff, D1 ;CRC checksum
+
+        move.l D2, -(A7)
+
+        .loop:
+            clr.w D2
+            ;use lowest byte of current CRC value as the index
+            move.b D1, D2
+            ;xor it with the current data
+            eor.b D2, (A0)
+            ;use that as an index into the poly lookup table
+            move.l (A1, D2.w*4), D2
+            ;shift the current CRC value right by 8
+            lsr.l #8, D1
+            ;xor the result from the poly table onto the current CRC value
+            eor.l D1, D2
+
+            ;rins and repeat until we reach the end of the buffer
+            addq.l #1, A0
+            subq.l #1, D0
+            bne .loop
+
+        ;move result to return register, restore used registers and exit
+        move.l D1, D0
+        move.l (A7)+, D2
+        rts
+;----------------------------------------------------------
+;Global constants
 ;----------------------------------------------------------
 UpdaterVersion:
         dc.b "2.00A", $00
+        even
+;----------------------------------------------------------
+;Global variables
+;----------------------------------------------------------
+    ;current Buffer offset
+BufferOffset:
+        ds.l 1
+    ;absolute length of buffer
+BufferLength:
+        ds.l 1
+    ;base address of flash write
+WriteAddress:
+        ds.l 1
+    ;polynominal lookup table for crc32 calculation
+PolyLookup:
+        ds.l 256
+;----------------------------------------------------------
+;Stack
+;----------------------------------------------------------
+Stack:
+    ;4kb RAM allocation for stack
+        ds.l 1024
+StackTop:
 ;----------------------------------------------------------
 
 UPDATER_END:
 
-UpdaterDataBuffer:
+DataBuffer:
