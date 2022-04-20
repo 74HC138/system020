@@ -11,6 +11,8 @@ org ROM_BASE
 .include "timer.asm"
 .include "keyboard.asm"
 .include "vdp.asm"
+.include "malloc.asm"
+.include "debug.asm"
 
 Main:
 		move.l #USP_STACK, A0

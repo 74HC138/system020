@@ -1,15 +1,17 @@
-include "system.asm"
+DebugInit:
+		andi.b #$fb, MFP_AER
+		ori.b #$04, MFP_IMRB
+		ori.b #$04, MFP_IERB
+		rts
 
-org ROM_BASE
+DebugerEnter:
+		move.l 
 
-include "vector.asm"
+		pea.l (.text0, PC), (-A7)
+		bsr SerialWrite
+		addq.l #4, A7
+		move.l ($02, A7), -(A7)
+		bsr SerialWriteHex32
 
-Main:
-		move.w RAM_BASE, D0
-		move.w IDE0_BASE, D0
-		move.w IDE1_BASE, D0
-		move.b MFP_BASE, D0
-		jmp Main.l
-
-SerialRXHandler:
-		rte
+	.text0:
+		.db "-------------------\nDEBUGER\nreturn address: 0x", $00

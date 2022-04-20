@@ -19,3 +19,13 @@ __SerialRBWrite: ;write index into ringbuffer
 		ds.w 1
 __CommandBuffer:
 		ds.w 256
+__romfsBase:
+		ds.l 1
+__romfsCurrentDirectory:
+		ds.l 1
+__MemoryAllocationTable:
+		ds.l (RAM_SIZE / 1024)
+__MemoryAllocationTableEnd:
+
+
+RAM_DEFS_END:

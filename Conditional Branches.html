@@ -1,0 +1,240 @@
+<html class=" lsumoaq idc0_338"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="GENERATOR" content="Adobe PageMill 2.0 Mac">
+  <title>Conditional Branches</title>
+</head>
+<body>
+
+<h2 align="CENTER">Conditional Branches</h2>
+
+<ul>
+  <li>Most CPUs contain a CC (Condition Code) register. Actually, it is a
+  section of the SR or PSR register.
+  </li><li>The CC usually contains 4 bits: N Z V C
+  </li><li>The 680x0 also has an X bit, which we will not cover.
+  </li><li>The CC is set following every move or arithmetic instruction on the
+  680x0.
+  </li><li>Setting the condition code is optional on the SPARC. Add "cc"
+  to the end of any arithmetic or logical opcode to set the condition code.
+  (Use "addcc" instead of "add", for example.) Don't
+  forget to do it when you need it!
+  </li><li>The Z bit is set to 1 if the result was Zero. (It is set if all bits
+  of the result were 0's.)
+  </li><li>The N bit is set to 1 if the result was Negative. (In other words,
+  it is set to the sign bit of the result.)
+  </li><li>The V bit is set to 1 if the operation caused an oVerflow (For add/sub,
+  <b>signed</b> values are assumed). An overflow occurs when there is no
+  encoding/representation for the correct answer in the space available.
+  </li><li>The C bit is set to 1 if the operation caused a carry (or borrow) out
+  of the top bit. This is an overflow bit for <b>unsigned</b> values when
+  using add/sub. (It has some other uses which may be covered later.)
+</li></ul>
+
+<p>Detection of overflow when adding or subtracting:</p>
+
+<ul>
+  <li>The rule for addition is: There was an overflow if and only if the
+  sign bit of the result is different from the signs of <b>both</b> operands.
+  (Since adding two positive numbers cannot possibly give a negative result,
+  and vice-versa, this makes sense.)
+  </li><li>Another trick that works: There is an overflow if and only if the carry
+  coming <b>in</b> to the sign bit column is different from the carry coming
+  <b>out</b> of the sign bit column (the C bit).
+  </li><li>For subtraction, use the same rules, but invert the sign of the second
+  number.
+</li></ul>
+
+<p>For example, assuming the 8-bit addition Sum&lt;-A+B, here is how the
+CC would be set:</p>
+
+<blockquote>
+  <pre> A  B   Sum   N Z V C
+ -- -- -----  - - - -
+ 1F FF (1)1E  0 0 0 1
+ 01 FF (1)00  0 1 0 1
+ 40 40 (0)80  1 0 1 0
+ A0 A0 (1)40  0 0 1 1
+ 00 01 (0)01  0 0 0 0</pre>
+</blockquote>
+
+<ul>
+  <li>Subtraction is done by twos complementing the second number, then adding.
+  The CC is set as usual by this addition, except that the C bit is set to
+  the opposite value when subtracting any number other than 0 (it becomes
+  a "borrow bit" and not a "carry bit"). It still indicates
+  an "unsigned overflow".
+  </li><li>For example, assuming the 8-bit subtraction Diff&lt;-A­B, here
+  is how the CC would be set:
+</li></ul>
+
+<blockquote>
+  <pre> A  B  -B  Diff  N Z V C
+ -- -- -- -----  - - - -
+ 1F FF 01 (0)20  0 0 0 1
+ 01 FF 01 (0)02  0 0 0 1
+ FF 01 FF (1)FE  1 0 0 0
+ 22 00 00 (0)22  0 0 0 0
+ 40 40 C0 (1)00  0 1 0 0
+ A0 60 A0 (1)40  0 0 1 0
+ 40 C0 40 (0)80  1 0 1 1</pre>
+</blockquote>
+
+<ul>
+  <li>Compare instructions exist on most machines, and their sole purpose
+  is to set the CC. They behave exactly the same as a subtraction, except
+  that the result is discarded.
+  </li><li>For 68000, use "cmp" (same rules as for add/sub).
+  </li><li>For SPARC, use a "subcc" with %g0 for the result. There is
+  no separate compare instruction. (RISC)
+  </li><li>Following a comparison, there is usually a conditional branch instruction
+  which will branch to some address (label) if the CC bits satisfy a certain
+  condition. The syntax for both SPARC and 680x0 is:
+</li></ul>
+
+<blockquote>
+  <pre> b<font size="-2">cc</font> Label (replace "b<font size="-2">cc</font>" by one of the opcodes below)</pre>
+</blockquote>
+
+<ul>
+  <li>There are four types of conditional branches:
+  <ul>
+    <li>Those that check one particular bit in the CC
+    </li><li>Those that are used following comparisons of <b>signed</b> integers
+    </li><li>Those that are used following comparisons of <b>unsigned</b> integers
+  </li></ul>
+  </li><li>There are also the unconditional branches - branch always and branch
+  never
+</li></ul>
+
+<p><table width="400" cellspacing="2" cellpadding="0" border="1">
+<tbody><tr>
+<td width="42%">&nbsp;Branch condition</td>
+<td width="23%">Branch if</td>
+<td width="18%">680x0 opcode</td>
+<td width="17%">SPARC opcode</td></tr>
+<tr>
+<td colspan="4">Check on particular bit in the CC:</td></tr>
+<tr>
+<td>Z bit is 1</td>
+<td>Z=1</td>
+<td>beq</td>
+<td>be</td></tr>
+<tr>
+<td>Z bit is 0</td>
+<td>Z=0</td>
+<td>bne</td>
+<td>bne</td></tr>
+<tr>
+<td>N bit is 1</td>
+<td>N=1</td>
+<td>bmi</td>
+<td>bneg</td></tr>
+<tr>
+<td>N bit is 0</td>
+<td>N=0</td>
+<td>bpl</td>
+<td>bpos</td></tr>
+<tr>
+<td>V bit is 1</td>
+<td>V=1</td>
+<td>bvs</td>
+<td>bvs</td></tr>
+<tr>
+<td>V bit is 0</td>
+<td>V=0</td>
+<td>bvc</td>
+<td>bvc</td></tr>
+<tr>
+<td>C bit is 1</td>
+<td>C=1</td>
+<td>bcs</td>
+<td>bcs</td></tr>
+<tr>
+<td>C bit is 0</td>
+<td>C=0</td>
+<td>bcc</td>
+<td>bcc</td></tr>
+<tr>
+<td colspan="4">Use after SIGNED comparisons (eg. CMP A,B or SUBCC B,A,%g0)</td></tr>
+<tr>
+<td>B = A</td>
+<td>Z = 1</td>
+<td>beq</td>
+<td>be</td></tr>
+<tr>
+<td>B &lt; &gt; A</td>
+<td>Z = 0</td>
+<td>bne</td>
+<td>bne</td></tr>
+<tr>
+<td>B &lt; A</td>
+<td>N * V = 1</td>
+<td>blt</td>
+<td>bl</td></tr>
+<tr>
+<td>B &gt;= A</td>
+<td>N * V = 0</td>
+<td>bge</td>
+<td>bge</td></tr>
+<tr>
+<td>B &lt;= A</td>
+<td>Z + (N * V) = 1</td>
+<td>ble</td>
+<td>ble</td></tr>
+<tr>
+<td>B &gt; A</td>
+<td>Z + (N * V) = 0</td>
+<td>bgt</td>
+<td>bg</td></tr>
+<tr>
+<td colspan="4">Use after UNSIGNED comparisons (eg. CMP A,B or SUBCC B,A,%g0)</td></tr>
+<tr>
+<td>B = A</td>
+<td>Z = 1</td>
+<td>beq</td>
+<td>be</td></tr>
+<tr>
+<td>B &lt; &gt; A</td>
+<td>Z = 0</td>
+<td>bne</td>
+<td>bne</td></tr>
+<tr>
+<td>B &lt; A</td>
+<td>C = 1</td>
+<td>blo (bcs)</td>
+<td>blu (bcs)</td></tr>
+<tr>
+<td>B &gt;= A</td>
+<td>C = 0</td>
+<td>bhs (bcc)</td>
+<td>bgeu (bcc)</td></tr>
+<tr>
+<td>B &lt;= A</td>
+<td>Z + C = 1</td>
+<td>bls</td>
+<td>bleu</td></tr>
+<tr>
+<td>B &gt; A</td>
+<td>Z + C = 0</td>
+<td>bhi</td>
+<td>bgu</td></tr>
+<tr>
+<td colspan="4">Unconditional branches</td></tr>
+<tr>
+<td>Always branch</td>
+<td>1 = 1</td>
+<td>bra</td>
+<td>ba</td></tr>
+<tr>
+<td>Never branch</td>
+<td>1 = 0</td>
+<td>---</td>
+<td>bn</td></tr>
+</tbody></table>
+</p>
+
+<h4>WARNING - SPARC uses "delayed branching" </h4>
+
+
+
+</body></html>

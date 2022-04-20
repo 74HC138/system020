@@ -78,7 +78,7 @@ dc.l IgnoreInterrupt            ;(Unasigned)
 
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 0
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 1
-dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 2
+dc.l DebugerEnter            	;MFP General Purpose Interrupt 2
 dc.l IgnoreInterrupt            ;MFP General Purpose Interrupt 3
 dc.l IgnoreInterrupt            ;MFP Timer D
 dc.l TimerInterrupthandler      ;MFP Timer C
@@ -102,6 +102,9 @@ FatalError:			;locks up cpu completely until reset
 
 IgnoreInterrupt:		;just returns without doing anything
         rte
+
+
+
 
 IllegalInterrupt:
 		move.l D0, -(A7)
