@@ -33,8 +33,6 @@ void cacheMutexClear() {
     lock = 0;
     return;
 }
-
-
 uint32_t checkIfCached(uint32_t LBA, uint8_t device) {
     cacheMutexLock();
     uint32_t crc = getCRC32uint32(LBA);
@@ -66,7 +64,7 @@ uint32_t addCache(uint32_t LBA, uint8_t Device, void* Data) {
     uint32_t entry = ((crc << 2) | (LBA & 0x03)) % CacheSize;
     if (cacheTable[entry].Lifetime > 0) {
         //cache entry is taken
-        if (cacheTable[entry].LBA = LBA && cacheTable[entry].Device = Device) {
+        if (cacheTable[entry].LBA == LBA && cacheTable[entry].Device == Device) {
             //allready in cache
             if (cacheTable[entry].Cache == (void*) 0) {
                 //cache is not allocated
@@ -93,7 +91,7 @@ uint32_t addCache(uint32_t LBA, uint8_t Device, void* Data) {
         return -1; //cache cannot be allocated
         cacheMutexClear();
     }
-    cacheTable[entry].Cache == cachePointer;
+    cacheTable[entry].Cache = cachePointer;
     uint32_t* source = (uint32_t*) Data;
     uint32_t* dest = (uint32_t*) cachePointer;
     for (int i = 0; i < 128; i++) dest[i] = source[i]; //copy data to cache

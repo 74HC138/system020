@@ -1,3 +1,5 @@
+#ifndef CALL_H
+#define CALL_H
 //includes
 
 //defines
@@ -17,3 +19,5 @@ enum KERNELCALL {
 
 //functions
 uint32_t kernelCall(enum KERNELCALL, ...);
+
+#endif
