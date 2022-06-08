@@ -3,3 +3,5 @@ build/
 buildtools/vbcc/
 codeSnippets/
 buildtools/fsbuilder/hdmaker
+**/*.bin
+**/.vscode/
