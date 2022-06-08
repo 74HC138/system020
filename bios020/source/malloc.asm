@@ -40,7 +40,7 @@ Malloc:
     cmpi.w #$00, D0
     beq .skip
         addi.l #$00010000, D0
-    skip:
+    .skip:
     swap D0
     move.w D0, -(A7)
     bsr MallocPage
@@ -60,14 +60,14 @@ MallocPage:
                 clr.l D1
             .continue:
             addq.l #4, A0
-            cmpa.l __MemoryAllocationTableEnd, A0
+            cmpa.l #__MemoryAllocationTableEnd, A0
             beq .exitFail
             bra .loop1
             .pageFree:
                 cmpi.w #$0000, D1
                 bne .skip
                     move.l A0, D0
-                    subi.l __MemoryAllocationTable, D0
+                    subi.l #__MemoryAllocationTable, D0
                     mulu.w #256, D0
                     addi.l #RAM_BASE, D0
                     move.l D0, A1
@@ -77,7 +77,7 @@ MallocPage:
                 beq .exitSucces
                 bra .continue
     .exitFail:
-        clr.l A1
+        move.l #0, A1
     .exitSucces:
         move.l A1, D0
         rts

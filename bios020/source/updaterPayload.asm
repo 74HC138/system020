@@ -4,14 +4,16 @@ UPDATER_BEGIN:
 
 main:
         ;set stack pointer to allocated stack space
-        move.l #StackTop, A7
+        lea.l (StackTop, PC), A7
         ;initialice the serial interface and the poly table
 		bsr SerialInit
-        bsr CRC32MakeLookup
+
+        pea.l (.textIntro, PC)
+        bsr SerialWrite
+        addq.l #4, A7
 
     .cmdLoop:
-        ;move return address to stack
-        move.l (.cmdLoop, PC), -(A7)
+        pea (.cmdLoop, PC)
 
         bsr SerialRead
         cmpi.b #'i', D0
@@ -23,15 +25,15 @@ main:
         cmpi.b #'b', D0
         beq ReceiveBufferoffset
         cmpi.b #'c', D0
-        beq SendChecksum
+        beq SendChecksum ;BORKED
         cmpi.b #'w', D0
         beq WriteToFlash
         cmpi.b #'s', D0
-        beq SendStatus
+        beq SendStatus ;BORKED
         cmpi.b #'a', D0
         beq ReceiveAddress
 
-        move.l (.textCNF, PC), -(A7)
+        pea.l (.textCNF, PC)
         bsr SerialWrite
         addq.l #4, A7
         rts
@@ -40,7 +42,9 @@ main:
         dc.b $18, "ERROR: Command not found\n", $06,  $00
         ;0x18 -> cancel ascii control character
         ;0x06 -> acknowlage ascii control character
-
+    .textIntro:
+        dc.b "Ready!\n", $00
+        even
 
 SendInfo:
     ;desciption: send a json formated string containing system information to the host
@@ -79,7 +83,7 @@ SendInfo:
 
         lea.l (.textField4, PC), A0
         move.l A0, -(A7)
-        move.l (UpdaterVersion, PC), -(A7)
+        pea.l (UpdaterVersion, PC)
         bsr SerialSendJSONString
         addq.l #8, A7
 
@@ -108,7 +112,7 @@ SendVersion:
     ;preserves registers
         bsr SerialSendACK
         
-        move.l (UpdaterVersion, PC), -(A7)
+        pea.l (UpdaterVersion, PC)
         bsr SerialWrite
         addq.l #4, A7
 
@@ -125,9 +129,9 @@ ReceiveData:
         move.l D4, -(A7)
         move.l D5, -(A7)
 
-        move.l #DataBuffer, A0
-        move.l BufferOffset, D2
-        move.l BufferLength, D3
+        lea.l (DataBuffer, PC), A0
+        move.l (BufferOffset, PC), D2
+        move.l (BufferLength, PC), D3
         move.w #1024, D5
 
         ;send acknowlage that the command has been received
@@ -155,7 +159,7 @@ ReceiveData:
             
             ;decrement the number of bytes to receive
             ;and loop as long as it is over 0
-            subq.l #2, D5
+            subq.w #2, D5
             bne .loop
 
         ;send acknowlage that the command has finished executing
@@ -221,9 +225,9 @@ WriteToFlash:
     ;preserves registers
         bsr SerialSendACK
 
-        move.l WriteAddress, A0
-        move.l DataBuffer, A1
-        move.l BufferLength, D0
+        move.l (WriteAddress, PC), A0
+        move.l (DataBuffer, PC), A1
+        move.l (BufferLength, PC), D0
 
         .loop0:
             ;word count to write per page
@@ -330,7 +334,15 @@ SerialInit:
 
         move.b #$01, MFP_RSR ;enable receiver
 
+        ;print test string
+        pea.l (.testText, PC)
+        bsr SerialWrite
+        addq.l #4, A7
+
         rts
+    .testText:
+        dc.b "Serial Inited\n", $00
+        even
 SerialWrite:
         move.l (4, A7), A0
     .loop:
@@ -352,9 +364,10 @@ SerialWriteChar:
         rts
 SerialRead:
         btst.b #7, MFP_RSR ;wait until a char is received
-        beq.w SerialRead
+        beq SerialRead
 
         move.b MFP_UDR, D0
+        move.b D0, MFP_UDR
         rts
 __SerialHexTable:
 		dc.b "0123456789ABCDEF"
@@ -518,42 +531,6 @@ SerialSendACK:
 ;----------------------------------------------------------
 ;CRC32 Functions
 ;----------------------------------------------------------
-CRC32MakeLookup:
-    ;description: fills the polynominal loopup table
-    ;paramters: none
-    ;returns: none
-    ;preserves registers
-        move.l D2, -(A7)
-        
-        move.l #$00, D0 ;table index
-        move.l #PolyLookup, A0 ;base pointer
-        ;loop over every table entry
-        .loop0:
-            ;set initial value of entry to its own index
-            move.l D0, (A0, D0.l*4)
-            ;iterate over entry
-            move.b #$08, D1
-            .loop1:
-                move.l (A0, D0.l*4), D2
-                ;shift entry right by one
-                lsr.w ($00, A0, D0.l*4)
-                roxr.w ($02, A0, D0.l*4)
-                ;if the lowest bit (before the shift) is set then xor the entry with the magic value
-                ;if not skip it
-                andi.l #$01, D2
-                beq .skip
-                    eori.l #$EDB88320, (A0, D0.l*4)
-                .skip:
-                subq.l #1, D1
-                bne .loop1
-            ;increment index and test if we looped over all table entrys
-            addq.l #1, D0
-            cmpi.l #$0100, D0
-            bne .loop0
-        ;poly table is finished
-        ;restore used registers and return
-        move.l (A7)+, D2
-        rts
 CRC32Calc:
     ;description: calculates the CRC32 value of a given number of bytes
     ;parameters: char* base, long length
@@ -563,7 +540,7 @@ CRC32Calc:
     ;preserves registers
         move.l ($04, A7), D0 ;length
         move.l ($08, A7), A0 ;base
-        move.l #PolyLookup, A1 ;lookup table
+        lea.l (PolyLookup, PC), A1 ;lookup table
         move.l #$ffffffff, D1 ;CRC checksum
 
         move.l D2, -(A7)
@@ -596,6 +573,72 @@ CRC32Calc:
 UpdaterVersion:
         dc.b "2.00A", $00
         even
+    ;polynominal lookup table for crc32 calculation
+PolyLookup:
+        dc.l $00000000, $77073096, $EE0E612C, $990951BA
+        dc.l $076DC419, $706AF48F, $E963A535, $9E6495A3
+        dc.l $0EDB8832, $79DCB8A4, $E0D5E91E, $97D2D988
+        dc.l $09B64C2B, $7EB17CBD, $E7B82D07, $90BF1D91
+        dc.l $1DB71064, $6AB020F2, $F3B97148, $84BE41DE
+        dc.l $1ADAD47D, $6DDDE4EB, $F4D4B551, $83D385C7
+        dc.l $136C9856, $646BA8C0, $FD62F97A, $8A65C9EC
+        dc.l $14015C4F, $63066CD9, $FA0F3D63, $8D080DF5
+        dc.l $3B6E20C8, $4C69105E, $D56041E4, $A2677172
+        dc.l $3C03E4D1, $4B04D447, $D20D85FD, $A50AB56B
+        dc.l $35B5A8FA, $42B2986C, $DBBBC9D6, $ACBCF940
+        dc.l $32D86CE3, $45DF5C75, $DCD60DCF, $ABD13D59
+        dc.l $26D930AC, $51DE003A, $C8D75180, $BFD06116
+        dc.l $21B4F4B5, $56B3C423, $CFBA9599, $B8BDA50F
+        dc.l $2802B89E, $5F058808, $C60CD9B2, $B10BE924
+        dc.l $2F6F7C87, $58684C11, $C1611DAB, $B6662D3D
+        dc.l $76DC4190, $01DB7106, $98D220BC, $EFD5102A
+        dc.l $71B18589, $06B6B51F, $9FBFE4A5, $E8B8D433
+        dc.l $7807C9A2, $0F00F934, $9609A88E, $E10E9818
+        dc.l $7F6A0DBB, $086D3D2D, $91646C97, $E6635C01
+        dc.l $6B6B51F4, $1C6C6162, $856530D8, $F262004E
+        dc.l $6C0695ED, $1B01A57B, $8208F4C1, $F50FC457
+        dc.l $65B0D9C6, $12B7E950, $8BBEB8EA, $FCB9887C
+        dc.l $62DD1DDF, $15DA2D49, $8CD37CF3, $FBD44C65
+        dc.l $4DB26158, $3AB551CE, $A3BC0074, $D4BB30E2
+        dc.l $4ADFA541, $3DD895D7, $A4D1C46D, $D3D6F4FB
+        dc.l $4369E96A, $346ED9FC, $AD678846, $DA60B8D0
+        dc.l $44042D73, $33031DE5, $AA0A4C5F, $DD0D7CC9
+        dc.l $5005713C, $270241AA, $BE0B1010, $C90C2086
+        dc.l $5768B525, $206F85B3, $B966D409, $CE61E49F
+        dc.l $5EDEF90E, $29D9C998, $B0D09822, $C7D7A8B4
+        dc.l $59B33D17, $2EB40D81, $B7BD5C3B, $C0BA6CAD
+        dc.l $EDB88320, $9ABFB3B6, $03B6E20C, $74B1D29A
+        dc.l $EAD54739, $9DD277AF, $04DB2615, $73DC1683
+        dc.l $E3630B12, $94643B84, $0D6D6A3E, $7A6A5AA8
+        dc.l $E40ECF0B, $9309FF9D, $0A00AE27, $7D079EB1
+        dc.l $F00F9344, $8708A3D2, $1E01F268, $6906C2FE
+        dc.l $F762575D, $806567CB, $196C3671, $6E6B06E7
+        dc.l $FED41B76, $89D32BE0, $10DA7A5A, $67DD4ACC
+        dc.l $F9B9DF6F, $8EBEEFF9, $17B7BE43, $60B08ED5
+        dc.l $D6D6A3E8, $A1D1937E, $38D8C2C4, $4FDFF252
+        dc.l $D1BB67F1, $A6BC5767, $3FB506DD, $48B2364B
+        dc.l $D80D2BDA, $AF0A1B4C, $36034AF6, $41047A60
+        dc.l $DF60EFC3, $A867DF55, $316E8EEF, $4669BE79
+        dc.l $CB61B38C, $BC66831A, $256FD2A0, $5268E236
+        dc.l $CC0C7795, $BB0B4703, $220216B9, $5505262F
+        dc.l $C5BA3BBE, $B2BD0B28, $2BB45A92, $5CB36A04
+        dc.l $C2D7FFA7, $B5D0CF31, $2CD99E8B, $5BDEAE1D
+        dc.l $9B64C2B0, $EC63F226, $756AA39C, $026D930A
+        dc.l $9C0906A9, $EB0E363F, $72076785, $05005713
+        dc.l $95BF4A82, $E2B87A14, $7BB12BAE, $0CB61B38
+        dc.l $92D28E9B, $E5D5BE0D, $7CDCEFB7, $0BDBDF21
+        dc.l $86D3D2D4, $F1D4E242, $68DDB3F8, $1FDA836E
+        dc.l $81BE16CD, $F6B9265B, $6FB077E1, $18B74777
+        dc.l $88085AE6, $FF0F6A70, $66063BCA, $11010B5C
+        dc.l $8F659EFF, $F862AE69, $616BFFD3, $166CCF45
+        dc.l $A00AE278, $D70DD2EE, $4E048354, $3903B3C2
+        dc.l $A7672661, $D06016F7, $4969474D, $3E6E77DB
+        dc.l $AED16A4A, $D9D65ADC, $40DF0B66, $37D83BF0
+        dc.l $A9BCAE53, $DEBB9EC5, $47B2CF7F, $30B5FFE9
+        dc.l $BDBDF21C, $CABAC28A, $53B39330, $24B4A3A6
+        dc.l $BAD03605, $CDD70693, $54DE5729, $23D967BF
+        dc.l $B3667A2E, $C4614AB8, $5D681B02, $2A6F2B94
+        dc.l $B40BBE37, $C30C8EA1, $5A05DF1B, $2D02EF8D
 ;----------------------------------------------------------
 ;Global variables
 ;----------------------------------------------------------
@@ -608,9 +651,6 @@ BufferLength:
     ;base address of flash write
 WriteAddress:
         ds.l 1
-    ;polynominal lookup table for crc32 calculation
-PolyLookup:
-        ds.l 256
 ;----------------------------------------------------------
 ;Stack
 ;----------------------------------------------------------

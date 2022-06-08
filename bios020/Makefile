@@ -3,6 +3,16 @@ ASSEMBLER = $(BUILDTOOLS)/vbcc/bin/vasmm68k_madmac
 FLAGS = -m68020 -Fbin
 FSSIZE = 0
 
+noFs: clean prepare payload
+	@echo ----------------------------------------------------------------------
+	@echo Building ROM
+	$(ASSEMBLER) source/main.asm -o build/bios.bin -L build/bios_listing.lst $(FLAGS)
+	@echo Building ROM DONE
+	@echo Splitting ROM
+	$(BUILDTOOLS)/romsplit/romsplit --input build/bios.bin --output build/highrom.bin build/lowrom.bin --bigEndian
+	@echo Splitting ROM DONE
+	@echo ----------------------------------------------------------------------
+
 all: clean prepare payload fs
 	@echo ----------------------------------------------------------------------
 	@echo Building ROM

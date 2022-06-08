@@ -315,6 +315,16 @@ SerialRead: ;int ()
 	.return:
 		rts
 
+SerialReadRaw:
+	;read a char dirrectly from the MFP. Will halt until a character has been read. Cant be used in conjunction with interrupt based reading
+		ori.b #$01, MFP_RSR
+		.loop:
+			move.b MFP_RSR, D0
+			andi.b #$80, D0
+			beq .loop
+		move.b MFP_UDR, D0
+		rts
+
 SerialHexdump: ;void (char*, int length)
 		move.w (4, A7), D0
 		move.l (6, A7), A0
