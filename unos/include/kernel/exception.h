@@ -2,10 +2,11 @@
 #define EXCEPTION_H
 //includes
 #include <stdint.h>
+#include "kernel/malloc.h"
 //defines
-#define returnExeption() volatile asm("rte")
-#define pushRegisters() volatile asm("movem D0-D7/A0-A6, -(A7)")
-#define popRegisters() volatile asm("movem (A7)+, D0-D7/A0-A6")
+#define returnExeption() asm volatile("rte")
+#define pushRegisters() asm volatile("movem D0-D7/A0-A6, -(A7)")
+#define popRegisters() asm volatile("movem (A7)+, D0-D7/A0-A6")
 //enumerations
 enum ExceptionList {
     ResetSP = 0,
@@ -61,7 +62,7 @@ enum ExceptionList {
 };
 //functions
 int initException();
-int addException(ExceptionList vector, void (*handler)(void))
+int addException(enum ExceptionList vector, void (*handler)(void));
 
 
 #endif

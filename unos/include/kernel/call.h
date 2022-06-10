@@ -1,6 +1,7 @@
 #ifndef CALL_H
 #define CALL_H
 //includes
+#include "kernel/exception.h"
 
 //defines
 
